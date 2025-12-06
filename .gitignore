@@ -2,8 +2,10 @@ data_dir_important
 data_dirs
 data_files
 dict_try
+__pycache__
 
 a.css
 d.html
+data.json
 data_.py
 multi_dir.py
