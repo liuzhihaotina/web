@@ -1,0 +1,40 @@
+{
+  "tables": [
+    {
+      "id": "performance-table",
+      "title": "⭐ 员工绩效评估",
+      "description": "员工季度绩效评分（数据来自个人文件夹）",
+      "header_file": "performance_headers.json",
+      "data_key": "performance"
+    },
+    {
+      "id": "sales-table",
+      "title": "📈 2024年销售数据",
+      "description": "各员工季度销售额统计（单位：万元）",
+      "header_file": "sales_headers.json",
+      "data_key": "sales"
+    },
+    {
+      "id": "projects-table",
+      "title": "🚀 项目进度跟踪",
+      "description": "各员工负责项目完成情况",
+      "header_file": "projects_headers.json",
+      "data_key": "projects"
+    },
+    {
+      "id": "financial-table",
+      "title": "💰 财务数据",
+      "description": "月度财务指标",
+      "header_file": "financial_headers.json",
+      "data_key": "financial"
+    },
+    {
+      "id": "flower-table",
+      "title": "🌹 flower",
+      "description": "花",
+      "header_file": "flower_headers.json",
+      "data_key": "flower"
+    }
+  ],
+  "default_headers": ["员工", "Q1", "Q2", "Q3", "Q4", "年度平均"]
+}

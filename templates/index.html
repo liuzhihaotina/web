@@ -1,0 +1,2263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>交互式数据展示平台</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 图标 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- 自定义CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        /* 内联样式补充 */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+            margin-bottom: 25px;
+            padding: 25px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            cursor: move;
+            border: 2px solid transparent;
+        }
+        
+        .table-container:hover {
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+            transform: translateY(-2px);
+        }
+        
+        .table-container.dragging {
+            opacity: 0.6;
+            transform: scale(1.02);
+            border-color: #4a6fa5;
+            box-shadow: 0 10px 30px rgba(74, 111, 165, 0.2);
+        }
+        
+        .table-container.selected {
+            border-color: #4a6fa5;
+            box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.2);
+        }
+        
+        .drag-handle {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            cursor: move;
+            color: #adb5bd;
+            font-size: 1.2rem;
+            padding: 5px;
+            border-radius: 4px;
+            transition: color 0.2s;
+            z-index: 10;
+        }
+        
+        .drag-handle:hover {
+            color: #4a6fa5;
+            background-color: rgba(74, 111, 165, 0.1);
+        }
+        
+        .order-indicator {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: #4a6fa5;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        
+        .table-header {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f1f3f4;
+            position: relative;
+        }
+        
+        .table-title {
+            color: #2c3e50;
+            font-weight: 600;
+            margin-bottom: 5px;
+            padding-right: 40px;
+        }
+        
+        .table-description {
+            color: #6c757d;
+            font-size: 0.95em;
+        }
+        
+        .table-custom {
+            margin-bottom: 0;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        
+        .table-custom thead th {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            font-weight: 500;
+            padding: 12px 15px;
+            position: sticky;
+            top: 0; /* 粘在顶部 */
+            z-index: 100; /* 确保在内容上方 */
+        }
+        
+        .table-custom tbody td {
+            padding: 12px 15px;
+            border-top: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+        
+        .table-custom tbody tr:hover {
+            background-color: rgba(74, 111, 165, 0.07);
+        }
+        
+        .status-completed { color: #28a745; font-weight: 500; }
+        .status-in-progress { color: #ffc107; font-weight: 500; }
+        .status-low { color: #dc3545; font-weight: 500; }
+        .status-adequate { color: #28a745; font-weight: 500; }
+        
+        .header-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, #4a6fa5, #2c3e50);
+            color: white;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        
+        .controls-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-custom {
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s;
+            border: none;
+        }
+        
+        .btn-primary-custom {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        
+        .btn-primary-custom:hover {
+            background-color: #3a5a85;
+            transform: translateY(-1px);
+        }
+        
+        .btn-success-custom {
+            background-color: #28a745;
+            color: white;
+        }
+        
+        .btn-success-custom:hover {
+            background-color: #218838;
+        }
+        
+        .btn-secondary-custom {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary-custom:hover {
+            background-color: #5a6268;
+        }
+        
+        .footer-section {
+            text-align: center;
+            margin-top: 50px;
+            color: #6c757d;
+            font-size: 0.9em;
+            padding: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        /* 导出相关样式 */
+        .dropdown-item.active {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        
+        .dropdown-menu {
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        
+        .dropdown-item {
+            padding: 10px 15px;
+            transition: all 0.2s;
+        }
+        
+        .dropdown-item:hover {
+            background-color: #4a6fa5;
+            color: white;
+        }
+        
+        .dropdown-item i {
+            margin-right: 8px;
+            width: 20px;
+            text-align: center;
+        }
+        
+        /* 导出加载提示 */
+        .export-loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none;
+        }
+        
+        .export-loading .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #4a6fa5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        /* 导出选项面板 */
+        .export-options-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 10000;
+            width: 90%;
+            max-width: 500px;
+            display: none;
+        }
+        
+        .export-option-group {
+            margin-bottom: 20px;
+        }
+        
+        .export-option-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #495057;
+            font-weight: 500;
+        }
+        
+        .export-option-checkbox {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .export-option-checkbox input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+        
+        .panel-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+        }
+        
+        /* 遮罩层 */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            display: none;
+        }
+        
+        /* 保存反馈 */
+        .save-feedback {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: #28a745;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            animation: slideIn 0.3s ease-out;
+            display: none;
+        }
+        
+        /* 统计信息 */
+        #export-stats {
+            background: #e8f4fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            display: none;
+        }
+        
+        #export-stats.show {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .stat-label {
+            font-weight: 600;
+            color: #4a6fa5;
+            margin-right: 8px;
+        }
+        
+        /* 动画 */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .controls-section {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-buttons {
+                justify-content: center;
+            }
+            
+            .table-container {
+                padding: 15px;
+            }
+            
+            .btn-custom {
+                padding: 6px 12px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 页面标题 -->
+        <div class="header-section">
+            <h1><i class="fas fa-table"></i> 交互式数据展示平台</h1>
+            <p class="lead mb-0">拖拽表格重新排序，一键导出所有数据</p>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls-section">
+            <div class="controls-info">
+                <h5><i class="fas fa-sliders-h"></i> 布局控制</h5>
+                <p class="mb-0 text-muted">拖拽表格移动位置，点击按钮保存当前顺序</p>
+            </div>
+            <div class="control-buttons">
+                <button id="save-order-btn" class="btn btn-success-custom btn-custom">
+                    <i class="fas fa-save"></i> 保存顺序
+                </button>
+                <button id="reset-order-btn" class="btn btn-secondary-custom btn-custom">
+                    <i class="fas fa-redo"></i> 重置
+                </button>
+                <button id="move-up-btn" class="btn btn-primary-custom btn-custom">
+                    <i class="fas fa-arrow-up"></i> 上移
+                </button>
+                <button id="move-down-btn" class="btn btn-primary-custom btn-custom">
+                    <i class="fas fa-arrow-down"></i> 下移
+                </button>
+                
+                <!-- 导出数据下拉菜单 -->
+                <div class="btn-group">
+                    <button type="button" class="btn btn-primary-custom btn-custom dropdown-toggle" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-file-export"></i> 导出
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="/export_all" id="export-sheets-btn">
+                                <i class="fas fa-file-excel"></i> 多Sheet Excel
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/export_all_formatted" id="export-formatted-btn">
+                                <i class="fas fa-table"></i> 格式化Excel
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="/export_all_single_sheet_simple" id="export-single-sheet-btn">
+                                <i class="fas fa-layer-group"></i> 单Sheet（有间隔）
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="export-custom-btn">
+                                <i class="fas fa-cog"></i> 自定义导出
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 人员数据管理下拉菜单 -->
+                <div class="btn-group">
+                    <button type="button" class="btn btn-info btn-custom dropdown-toggle" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-users"></i> 人员数据
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="#" id="refresh-persons-btn">
+                                <i class="fas fa-sync-alt"></i> 刷新人员列表
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="add-person-btn">
+                                <i class="fas fa-user-plus"></i> 添加人员
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="edit-person-data-btn">
+                                <i class="fas fa-edit"></i> 编辑人员数据
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="delete-person-btn">
+                                <i class="fas fa-user-minus"></i> 删除人员
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="#" id="view-data-structure-btn">
+                                <i class="fas fa-folder-open"></i> 查看数据结构
+                            </a>
+                        </li>
+                    </ul>
+                </div>                
+                
+                <button id="collapse-all-btn" class="btn btn-secondary-custom btn-custom">
+                    <i class="fas fa-compress"></i> 折叠
+                </button>
+                <button id="expand-all-btn" class="btn btn-secondary-custom btn-custom">
+                    <i class="fas fa-expand"></i> 展开
+                </button>
+            </div>
+        </div>
+
+        <!-- 表格容器（可拖拽排序） -->
+        <div id="tables-container" class="tables-sortable">
+            {% for table in tables %}
+            <div class="table-container" id="container-{{ table.id }}" data-table-id="{{ table.id }}">
+                <!-- 顺序指示器 -->
+                <div class="order-indicator">{{ loop.index }}</div>
+                
+                <!-- 拖拽手柄 -->
+                <div class="drag-handle">
+                    <i class="fas fa-bars"></i>
+                </div>
+                
+                <!-- 行数信息 -->
+                <div class="row-count-info">
+                    共 <span class="count-number">{{ table.rows|length }}</span> 行
+                </div>
+
+                <!-- 表格标题和描述 -->
+                <div class="table-header">
+                    <h2 class="table-title">{{ table.title }}</h2>
+                    {% if table.description %}
+                    <p class="table-description">{{ table.description }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- 表格内容 -->
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover">
+                        <thead>
+                            <tr>
+                                {% for header in table.headers %}
+                                <th>{{ header }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in table.rows %}
+                            <tr>
+                                {% for cell in row %}
+                                <td>
+                                    {% if loop.index == 6 and table.id == 'inventory-table' %}
+                                        {% if cell == '不足' %}
+                                            <span class="status-low">{{ cell }}</span>
+                                        {% else %}
+                                            <span class="status-adequate">{{ cell }}</span>
+                                        {% endif %}
+                                    {% elif loop.index == 6 and table.id == 'project-table' %}
+                                        {% if cell == '已完成' %}
+                                            <span class="status-completed">{{ cell }}</span>
+                                        {% else %}
+                                            <span class="status-in-progress">{{ cell }}</span>
+                                        {% endif %}
+                                    {% elif table.id == 'financial-table' and loop.index == 5 %}
+                                        <span class="status-adequate">{{ cell }}</span>
+                                    {% else %}
+                                        {{ cell }}
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        {% if table.footer %}
+                        <tfoot class="table-footer">
+                            <tr>
+                                {% for item in table.footer %}
+                                <td><strong>{{ item }}</strong></td>
+                                {% endfor %}
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                    </table>
+                </div>
+
+                <!-- 分页控件 -->
+                <div class="table-pagination" id="pagination-{{ table.id }}" style="display: none;">
+                    <div class="pagination-info">
+                        显示 <span class="current-range">1-20</span> 条，共 <span class="total-rows">{{ table.rows|length }}</span> 条
+                    </div>
+                    <div class="pagination-controls">
+                        <button class="pagination-btn first-page" title="第一页">
+                            <i class="fas fa-angle-double-left"></i>
+                        </button>
+                        <button class="pagination-btn prev-page" title="上一页">
+                            <i class="fas fa-angle-left"></i>
+                        </button>
+                        
+                        <div class="pagination-numbers">
+                            <!-- 页码动态生成 -->
+                        </div>
+                        
+                        <button class="pagination-btn next-page" title="下一页">
+                            <i class="fas fa-angle-right"></i>
+                        </button>
+                        <button class="pagination-btn last-page" title="最后一页">
+                            <i class="fas fa-angle-double-right"></i>
+                        </button>
+                        
+                        <select class="page-size-select" data-table="{{ table.id }}">
+                            <option value="10">10条/页</option>
+                            <option value="20" selected>20条/页</option>
+                            <option value="50">50条/页</option>
+                            <option value="100">100条/页</option>
+                            <option value="200">200条/页</option>
+                        </select>
+                        
+                        <span class="ms-2">
+                            跳至 <input type="number" class="jump-to-page" 
+                                min="1" max="100" style="width: 60px; padding: 4px;"> 页
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- 表格操作按钮 -->
+                <div class="table-actions mt-3">
+                    <button class="btn btn-sm btn-outline-secondary table-collapse-btn" data-table="{{ table.id }}">
+                        <i class="fas fa-chevron-up"></i> 折叠
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary ms-2 table-export-btn" data-table="{{ table.id }}">
+                        <i class="fas fa-download"></i> 导出单个
+                    </button>
+                    <!-- <button class="btn btn-sm btn-outline-info ms-2 toggle-pagination-btn" data-table="{{ table.id }}">
+                        <i class="fas fa-list-ol"></i> 分页模式
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning ms-2 toggle-scroll-btn" data-table="{{ table.id }}">
+                        <i class="fas fa-scroll"></i> 滚动模式 -->
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- 页脚 -->
+        <div class="footer-section">
+            <p>
+                最后更新: {{ now.strftime('%Y-%m-%d %H:%M:%S') if now else '2024-01-01' }} | 
+                共 {{ tables|length }} 个表格 | 
+                <span id="order-status">顺序已保存</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- 保存反馈提示 -->
+    <div id="save-feedback" class="save-feedback">
+        <i class="fas fa-check-circle"></i> 顺序已保存！
+    </div>
+
+    <!-- 导出加载提示 -->
+    <div class="export-loading">
+        <div class="spinner"></div>
+        <p>正在生成Excel文件，请稍候...</p>
+        <p class="text-muted" style="font-size: 0.9rem;">文件较大时可能需要一些时间</p>
+    </div>
+
+    <!-- 自定义导出面板 -->
+    <div class="export-options-panel">
+        <h4><i class="fas fa-cog"></i> 自定义导出设置</h4>
+        
+        <div class="export-option-group">
+            <label for="export-format">导出格式：</label>
+            <select id="export-format" class="form-select">
+                <option value="multi-sheet">多Sheet Excel（推荐）</option>
+                <option value="single-sheet">单Sheet（有间隔）</option>
+                <option value="formatted">格式化Excel</option>
+                <option value="csv">CSV格式</option>
+            </select>
+        </div>
+        
+        <div class="export-option-group">
+            <label for="export-sheets">选择要导出的表格：</label>
+            <select id="export-sheets" class="form-select" multiple size="6">
+                <!-- 动态填充 -->
+            </select>
+            <small class="text-muted">按住Ctrl键可多选，不选则导出全部</small>
+        </div>
+        
+        <div class="export-option-group">
+            <label>导出选项：</label>
+            <div class="export-option-checkbox">
+                <input type="checkbox" id="include-titles" checked>
+                <label for="include-titles">包含表格标题</label>
+            </div>
+            <div class="export-option-checkbox">
+                <input type="checkbox" id="include-descriptions" checked>
+                <label for="include-descriptions">包含表格描述</label>
+            </div>
+            <div class="export-option-checkbox">
+                <input type="checkbox" id="include-footers" checked>
+                <label for="include-footers">包含表格脚注</label>
+            </div>
+            <div class="export-option-checkbox">
+                <input type="checkbox" id="auto-adjust-columns" checked>
+                <label for="auto-adjust-columns">自动调整列宽</label>
+            </div>
+        </div>
+        
+        <div id="export-stats" class="export-stats">
+            <p><span class="stat-label">将导出：</span> <span id="table-count">0</span> 个表格</p>
+            <p><span class="stat-label">总行数：</span> <span id="total-rows">0</span> 行</p>
+            <p><span class="stat-label">总列数：</span> <span id="total-columns">0</span> 列</p>
+        </div>
+        
+        <div class="panel-buttons">
+            <button id="cancel-export-btn" class="btn btn-secondary-custom btn-custom">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button id="confirm-export-btn" class="btn btn-success-custom btn-custom">
+                <i class="fas fa-file-export"></i> 开始导出
+            </button>
+        </div>
+    </div>
+
+        <!-- 人员管理面板 -->
+    <div class="export-options-panel" id="person-management-panel">
+        <h4><i class="fas fa-users"></i> 人员数据管理</h4>
+        
+        <div class="export-option-group">
+            <label for="person-select">选择人员：</label>
+            <select id="person-select" class="form-select">
+                <option value="">-- 请选择人员 --</option>
+            </select>
+        </div>
+        
+        <div class="export-option-group">
+            <label>选择数据表格：</label>
+            <div id="table-checkboxes" class="mt-2">
+                <!-- 动态生成表格复选框 -->
+            </div>
+        </div>
+        
+        <div class="export-option-group" id="data-input-container">
+            <!-- 动态生成数据输入框 -->
+        </div>
+        
+        <div class="panel-buttons">
+            <button id="cancel-person-btn" class="btn btn-secondary-custom btn-custom">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button id="save-person-data-btn" class="btn btn-success-custom btn-custom">
+                <i class="fas fa-save"></i> 保存数据
+            </button>
+        </div>
+    </div>
+
+    <!-- 添加人员面板 -->
+    <div class="export-options-panel" id="add-person-panel">
+        <h4><i class="fas fa-user-plus"></i> 添加新人员</h4>
+        
+        <div class="export-option-group">
+            <label for="new-person-name">人员名称：</label>
+            <input type="text" id="new-person-name" class="form-control" 
+                placeholder="请输入人员名称（英文字母或拼音）">
+            <small class="text-muted">将作为文件夹名称和表格中的标识</small>
+        </div>
+        
+        <div class="panel-buttons">
+            <button id="cancel-add-person-btn" class="btn btn-secondary-custom btn-custom">
+                <i class="fas fa-times"></i> 取消
+            </button>
+            <button id="confirm-add-person-btn" class="btn btn-success-custom btn-custom">
+                <i class="fas fa-check"></i> 创建
+            </button>
+        </div>
+    </div>
+
+    <!-- 数据结构查看面板 -->
+    <div class="export-options-panel" id="data-structure-panel">
+        <h4><i class="fas fa-folder-open"></i> 数据结构</h4>
+        
+        <div class="export-option-group">
+            <label>当前数据目录结构：</label>
+            <div id="data-structure-content" style="
+                background: #f8f9fa;
+                padding: 15px;
+                border-radius: 6px;
+                max-height: 300px;
+                overflow-y: auto;
+                font-family: monospace;
+                font-size: 0.9rem;
+                white-space: pre;
+            ">
+                <!-- 动态显示目录结构 -->
+            </div>
+        </div>
+        
+        <div class="export-option-group">
+            <label>数据统计：</label>
+            <div id="data-stats">
+                <!-- 动态显示统计数据 -->
+            </div>
+        </div>
+        
+        <div class="panel-buttons">
+            <button id="close-structure-btn" class="btn btn-secondary-custom btn-custom">
+                <i class="fas fa-times"></i> 关闭
+            </button>
+            <button id="refresh-structure-btn" class="btn btn-primary-custom btn-custom">
+                <i class="fas fa-sync-alt"></i> 刷新
+            </button>
+        </div>
+    </div>
+
+    <!-- 遮罩层 -->
+    <div class="overlay"></div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- SortableJS 用于拖拽排序 -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+    
+    <!-- 主JavaScript文件 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化Sortable拖拽
+            const tablesContainer = document.getElementById('tables-container');
+            const sortable = new Sortable(tablesContainer, {
+                animation: 150,
+                handle: '.drag-handle',
+                ghostClass: 'drag-ghost',
+                chosenClass: 'dragging',
+                dragClass: 'dragging',
+                onEnd: function(evt) {
+                    updateOrderIndicators();
+                    updateOrderStatus('修改');
+                }
+            });
+
+            // 更新顺序指示器
+            function updateOrderIndicators() {
+                const containers = document.querySelectorAll('.table-container');
+                containers.forEach((container, index) => {
+                    const indicator = container.querySelector('.order-indicator');
+                    if (indicator) {
+                        indicator.textContent = index + 1;
+                    }
+                });
+            }
+
+            // 更新顺序状态
+            function updateOrderStatus(status = '修改') {
+                const orderStatus = document.getElementById('order-status');
+                if (status === '修改') {
+                    orderStatus.textContent = '顺序已修改（未保存）';
+                    orderStatus.style.color = '#ffc107';
+                } else if (status === '保存') {
+                    orderStatus.textContent = '顺序已保存';
+                    orderStatus.style.color = '#28a745';
+                }
+            }
+
+            // 保存顺序到服务器
+            document.getElementById('save-order-btn').addEventListener('click', function() {
+                const tableIds = Array.from(document.querySelectorAll('.table-container'))
+                    .map(container => container.getAttribute('data-table-id'));
+                
+                fetch('/update_order', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ order: tableIds })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification('顺序已保存！', 'success');
+                        updateOrderStatus('保存');
+                    } else {
+                        showNotification('保存失败: ' + data.message, 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showNotification('保存失败，请检查网络连接', 'error');
+                });
+            });
+
+            // 重置顺序
+            document.getElementById('reset-order-btn').addEventListener('click', function() {
+                if (confirm('确定要重置为默认顺序吗？')) {
+                    location.reload();
+                }
+            });
+
+            // 上下移动功能
+            let selectedTable = null;
+
+            // 表格点击选中
+            document.querySelectorAll('.table-container').forEach(container => {
+                container.addEventListener('click', function(e) {
+                    if (!e.target.closest('.drag-handle') && 
+                        !e.target.closest('.table-actions') &&
+                        !e.target.closest('.drag-handle i')) {
+                        document.querySelectorAll('.table-container').forEach(c => {
+                            c.classList.remove('selected');
+                        });
+                        this.classList.add('selected');
+                        selectedTable = this;
+                    }
+                });
+            });
+
+            // 上移按钮
+            document.getElementById('move-up-btn').addEventListener('click', function() {
+                if (selectedTable) {
+                    const prev = selectedTable.previousElementSibling;
+                    if (prev && prev.classList.contains('table-container')) {
+                        selectedTable.parentNode.insertBefore(selectedTable, prev);
+                        updateOrderIndicators();
+                        updateOrderStatus('修改');
+                    }
+                } else {
+                    showNotification('请先点击选择一个表格', 'info');
+                }
+            });
+
+            // 下移按钮
+            document.getElementById('move-down-btn').addEventListener('click', function() {
+                if (selectedTable) {
+                    const next = selectedTable.nextElementSibling;
+                    if (next && next.classList.contains('table-container')) {
+                        selectedTable.parentNode.insertBefore(next, selectedTable);
+                        updateOrderIndicators();
+                        updateOrderStatus('修改');
+                    }
+                } else {
+                    showNotification('请先点击选择一个表格', 'info');
+                }
+            });
+
+            // 折叠/展开功能
+            document.getElementById('collapse-all-btn').addEventListener('click', function() {
+                document.querySelectorAll('.table-container .table-responsive').forEach(table => {
+                    table.style.display = 'none';
+                });
+                document.querySelectorAll('.table-collapse-btn i').forEach(icon => {
+                    icon.className = 'fas fa-chevron-down';
+                });
+                document.querySelectorAll('.table-collapse-btn').forEach(btn => {
+                    btn.innerHTML = '<i class="fas fa-chevron-down"></i> 展开';
+                });
+            });
+
+            document.getElementById('expand-all-btn').addEventListener('click', function() {
+                document.querySelectorAll('.table-container .table-responsive').forEach(table => {
+                    table.style.display = 'block';
+                });
+                document.querySelectorAll('.table-collapse-btn i').forEach(icon => {
+                    icon.className = 'fas fa-chevron-up';
+                });
+                document.querySelectorAll('.table-collapse-btn').forEach(btn => {
+                    btn.innerHTML = '<i class="fas fa-chevron-up"></i> 折叠';
+                });
+            });
+
+            // 单个表格折叠
+            document.querySelectorAll('.table-collapse-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tableId = this.getAttribute('data-table');
+                    const table = document.querySelector(`#container-${tableId} .table-responsive`);
+                    const icon = this.querySelector('i');
+                    
+                    if (table.style.display === 'none') {
+                        table.style.display = 'block';
+                        icon.className = 'fas fa-chevron-up';
+                        this.innerHTML = '<i class="fas fa-chevron-up"></i> 折叠';
+                    } else {
+                        table.style.display = 'none';
+                        icon.className = 'fas fa-chevron-down';
+                        this.innerHTML = '<i class="fas fa-chevron-down"></i> 展开';
+                    }
+                });
+            });
+
+            // 单个表格导出
+            document.querySelectorAll('.table-export-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tableId = this.getAttribute('data-table');
+                    const table = document.querySelector(`#container-${tableId} table`);
+                    const title = document.querySelector(`#container-${tableId} .table-title`).textContent;
+                    
+                    // 简单的CSV导出
+                    let csv = [];
+                    const rows = table.querySelectorAll('tr');
+                    
+                    rows.forEach(row => {
+                        const rowData = [];
+                        const cells = row.querySelectorAll('th, td');
+                        cells.forEach(cell => {
+                            // 清理文本，移除HTML标签
+                            let cellText = cell.innerText || cell.textContent;
+                            // 处理逗号，用引号包裹
+                            if (cellText.includes(',') || cellText.includes('"') || cellText.includes('\n')) {
+                                cellText = '"' + cellText.replace(/"/g, '""') + '"';
+                            }
+                            rowData.push(cellText);
+                        });
+                        csv.push(rowData.join(','));
+                    });
+                    
+                    const csvContent = csv.join('\n');
+                    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `${cleanFilename(title)}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                    
+                    showNotification(`表格"${title}"已导出为CSV文件`, 'success');
+                });
+            });
+
+            // 清理文件名函数
+            function cleanFilename(filename) {
+                return filename.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_').substring(0, 50);
+            }
+
+            // 键盘快捷键支持
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + S 保存
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    document.getElementById('save-order-btn').click();
+                }
+                // Ctrl + ↑ 上移
+                if (e.ctrlKey && e.key === 'ArrowUp' && selectedTable) {
+                    e.preventDefault();
+                    document.getElementById('move-up-btn').click();
+                }
+                // Ctrl + ↓ 下移
+                if (e.ctrlKey && e.key === 'ArrowDown' && selectedTable) {
+                    e.preventDefault();
+                    document.getElementById('move-down-btn').click();
+                }
+                // Ctrl + E 打开导出面板
+                if (e.ctrlKey && e.key === 'e') {
+                    e.preventDefault();
+                    document.getElementById('export-custom-btn').click();
+                }
+                // Ctrl + Shift + E 快速导出到多Sheet
+                if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+                    e.preventDefault();
+                    showExportLoading();
+                    window.location.href = '/export_all';
+                }
+            });
+
+            // 导出功能
+            const exportLoading = document.querySelector('.export-loading');
+            const exportPanel = document.querySelector('.export-options-panel');
+            const overlay = document.querySelector('.overlay');
+            const tablesCount = document.querySelectorAll('.table-container').length;
+
+            // 填充表格选择列表
+            function populateExportSheets() {
+                const select = document.getElementById('export-sheets');
+                const tables = document.querySelectorAll('.table-container');
+                
+                select.innerHTML = '';
+                tables.forEach(table => {
+                    const tableId = table.getAttribute('data-table-id');
+                    const title = table.querySelector('.table-title').textContent;
+                    const option = document.createElement('option');
+                    option.value = tableId;
+                    option.textContent = title;
+                    option.selected = true;
+                    select.appendChild(option);
+                });
+                
+                updateExportStats();
+            }
+            
+            // 更新导出统计信息
+            function updateExportStats() {
+                const selectedOptions = document.querySelectorAll('#export-sheets option:checked');
+                const tableCount = selectedOptions.length;
+                
+                let totalRows = 0;
+                let totalColumns = 0;
+                
+                selectedOptions.forEach(option => {
+                    const tableId = option.value;
+                    const tableContainer = document.querySelector(`[data-table-id="${tableId}"]`);
+                    if (tableContainer) {
+                        const rows = tableContainer.querySelectorAll('tbody tr');
+                        const headers = tableContainer.querySelectorAll('thead th');
+                        totalRows += rows.length;
+                        totalColumns = Math.max(totalColumns, headers.length);
+                    }
+                });
+                
+                document.getElementById('table-count').textContent = tableCount;
+                document.getElementById('total-rows').textContent = totalRows;
+                document.getElementById('total-columns').textContent = totalColumns;
+                
+                const statsDiv = document.getElementById('export-stats');
+                statsDiv.classList.add('show');
+            }
+            
+            // 显示导出面板
+            document.getElementById('export-custom-btn').addEventListener('click', function(e) {
+                e.preventDefault();
+                populateExportSheets();
+                exportPanel.style.display = 'block';
+                overlay.style.display = 'block';
+            });
+            
+            // 隐藏导出面板
+            document.getElementById('cancel-export-btn').addEventListener('click', function() {
+                exportPanel.style.display = 'none';
+                overlay.style.display = 'none';
+            });
+            
+            overlay.addEventListener('click', function() {
+                exportPanel.style.display = 'none';
+                overlay.style.display = 'none';
+            });
+            
+            // 更新统计信息当选择变化时
+            document.getElementById('export-sheets').addEventListener('change', updateExportStats);
+            
+            // 确认导出
+            document.getElementById('confirm-export-btn').addEventListener('click', function() {
+                const format = document.getElementById('export-format').value;
+                const selectedSheets = Array.from(document.querySelectorAll('#export-sheets option:checked'))
+                                        .map(option => option.value);
+                
+                // 根据格式选择导出URL
+                let exportUrl = '';
+                let formatName = '';
+                
+                if (format === 'multi-sheet') {
+                    exportUrl = '/export_all';
+                    formatName = '多Sheet Excel';
+                } else if (format === 'single-sheet') {
+                    exportUrl = '/export_all_single_sheet_simple';
+                    formatName = '单Sheet（有间隔）';
+                } else if (format === 'formatted') {
+                    exportUrl = '/export_all_formatted';
+                    formatName = '格式化Excel';
+                } else if (format === 'csv') {
+                    showNotification('CSV导出功能正在开发中', 'info');
+                    return;
+                } else {
+                    showNotification('该格式暂未实现', 'error');
+                    return;
+                }
+                
+                // 如果有选择特定的表格，添加参数
+                if (selectedSheets.length > 0 && selectedSheets.length < tablesCount) {
+                    exportUrl += `?tables=${selectedSheets.join(',')}`;
+                }
+                
+                // 显示加载提示
+                showExportLoading(formatName, selectedSheets.length || tablesCount);
+                
+                // 开始导出
+                fetch(exportUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('导出失败，服务器错误');
+                        }
+                        return response.blob();
+                    })
+                    .then(blob => {
+                        // 创建下载链接
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        
+                        // 根据格式设置文件名
+                        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:]/g, '-');
+                        let filename = '';
+                        
+                        switch(format) {
+                            case 'multi-sheet':
+                                filename = `多Sheet数据报表_${timestamp}.xlsx`;
+                                break;
+                            case 'single-sheet':
+                                filename = `数据汇总报表_${timestamp}.xlsx`;
+                                break;
+                            case 'formatted':
+                                filename = `格式化数据报表_${timestamp}.xlsx`;
+                                break;
+                            default:
+                                filename = `数据导出_${timestamp}.xlsx`;
+                        }
+                        
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                        
+                        // 隐藏加载提示
+                        hideExportLoading();
+                        
+                        // 隐藏面板
+                        exportPanel.style.display = 'none';
+                        overlay.style.display = 'none';
+                        
+                        // 显示成功提示
+                        showNotification(`${formatName}导出成功！文件已开始下载。`, 'success');
+                    })
+                    .catch(error => {
+                        console.error('导出错误:', error);
+                        hideExportLoading();
+                        showNotification('导出失败：' + error.message, 'error');
+                    });
+            });
+            
+            // 显示导出加载提示
+            function showExportLoading(formatName = 'Excel', tableCount = 0) {
+                exportLoading.style.display = 'flex';
+                exportLoading.innerHTML = `
+                    <div class="spinner"></div>
+                    <p>正在生成${formatName}文件，请稍候...</p>
+                    <p class="text-muted" style="font-size: 0.9rem;">正在处理 ${tableCount} 个表格</p>
+                `;
+                
+                // 10秒后自动隐藏，防止卡住
+                setTimeout(() => {
+                    hideExportLoading();
+                }, 10000);
+            }
+            
+            // 隐藏导出加载提示
+            function hideExportLoading() {
+                exportLoading.style.display = 'none';
+            }
+            
+            // 快速导出链接的处理
+            const quickExportLinks = [
+                document.getElementById('export-sheets-btn'),
+                document.getElementById('export-formatted-btn'),
+                document.getElementById('export-single-sheet-btn')
+            ];
+            
+            quickExportLinks.forEach(link => {
+                if (link) {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        const formatName = this.textContent.trim();
+                        showExportLoading(formatName, tablesCount);
+                        
+                        // 延迟跳转，确保加载提示显示
+                        setTimeout(() => {
+                            window.location.href = this.href;
+                        }, 100);
+                        
+                        // 页面返回时隐藏加载提示
+                        window.addEventListener('pageshow', function() {
+                            hideExportLoading();
+                        });
+                    });
+                }
+            });
+            
+            // 显示通知函数
+            function showNotification(message, type = 'info') {
+                // 移除现有的通知
+                const existingNotifications = document.querySelectorAll('.save-feedback');
+                existingNotifications.forEach(notification => {
+                    document.body.removeChild(notification);
+                });
+                
+                const notification = document.createElement('div');
+                notification.className = 'save-feedback';
+                notification.style.background = type === 'success' ? '#28a745' : 
+                                            type === 'error' ? '#dc3545' : 
+                                            type === 'info' ? '#4a6fa5' : '#ffc107';
+                notification.innerHTML = `
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' : 
+                                type === 'error' ? 'fa-exclamation-circle' : 
+                                type === 'info' ? 'fa-info-circle' : 'fa-exclamation-triangle'}"></i>
+                    ${message}
+                `;
+                
+                document.body.appendChild(notification);
+                
+                // 显示通知
+                setTimeout(() => {
+                    notification.style.display = 'block';
+                }, 10);
+                
+                // 3秒后自动消失
+                setTimeout(() => {
+                    notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            document.body.removeChild(notification);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+            
+            // 监听页面可见性变化，隐藏加载提示
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    hideExportLoading();
+                }
+            });
+            
+            // 添加导出统计信息到页脚
+            const orderStatus = document.getElementById('order-status');
+            orderStatus.innerHTML += ` | 共 ${tablesCount} 个表格可导出`;
+            
+            // 初始化
+            updateOrderIndicators();
+            
+            // 显示欢迎消息
+            // setTimeout(() => {
+            //     showNotification('欢迎使用交互式数据展示平台！拖拽表格可重新排序。', 'info');
+            // }, 1000);
+
+                        // 人员数据管理功能
+            document.getElementById('refresh-persons-btn').addEventListener('click', function() {
+                refreshPersonsList();
+                showNotification('人员列表已刷新', 'success');
+            });
+
+            document.getElementById('add-person-btn').addEventListener('click', function() {
+                document.getElementById('add-person-panel').style.display = 'block';
+                overlay.style.display = 'block';
+            });
+
+            document.getElementById('edit-person-data-btn').addEventListener('click', function() {
+                loadPersonsList();
+                document.getElementById('person-management-panel').style.display = 'block';
+                overlay.style.display = 'block';
+            });
+
+            document.getElementById('delete-person-btn').addEventListener('click', function() {
+                showDeletePersonPanel();
+            });
+
+            document.getElementById('view-data-structure-btn').addEventListener('click', function() {
+                showDataStructure();
+            });
+
+            // 加载人员列表
+            function loadPersonsList() {
+                fetch('/api/persons')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const personSelect = document.getElementById('person-select');
+                            personSelect.innerHTML = '<option value="">-- 请选择人员 --</option>';
+                            
+                            data.persons.forEach(person => {
+                                const option = document.createElement('option');
+                                option.value = person;
+                                option.textContent = person;
+                                personSelect.appendChild(option);
+                            });
+                            
+                            // 加载表格配置
+                            loadTableConfigs();
+                        } else {
+                            showNotification('加载人员列表失败: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载人员列表错误:', error);
+                        showNotification('加载人员列表失败', 'error');
+                    });
+            }
+
+            // 加载表格配置
+            function loadTableConfigs() {
+                fetch('/api/table-configs')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const tableCheckboxes = document.getElementById('table-checkboxes');
+                            tableCheckboxes.innerHTML = '';
+                            
+                            data.config.tables.forEach(table => {
+                                const div = document.createElement('div');
+                                div.className = 'form-check';
+                                div.innerHTML = `
+                                    <input class="form-check-input table-checkbox" 
+                                        type="checkbox" 
+                                        value="${table.data_key}" 
+                                        id="table-${table.data_key}">
+                                    <label class="form-check-label" for="table-${table.data_key}">
+                                        ${table.title}
+                                    </label>
+                                `;
+                                tableCheckboxes.appendChild(div);
+                            });
+                            
+                            // 绑定复选框点击事件
+                            document.querySelectorAll('.table-checkbox').forEach(checkbox => {
+                                checkbox.addEventListener('change', function() {
+                                    if (this.checked && document.getElementById('person-select').value) {
+                                        loadPersonDataForTable(
+                                            document.getElementById('person-select').value,
+                                            this.value
+                                        );
+                                    }
+                                });
+                            });
+                        } else {
+                            showNotification('加载表格配置失败: ' + data.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载表格配置错误:', error);
+                        showNotification('加载表格配置失败', 'error');
+                    });
+            }
+
+            // 绑定人员选择变化事件
+            document.getElementById('person-select').addEventListener('change', function() {
+                const personName = this.value;
+                if (personName) {
+                    // 清空数据输入容器
+                    document.getElementById('data-input-container').innerHTML = 
+                        '<p class="text-muted">请在上方选择一个表格类型</p>';
+                    
+                    // 取消所有复选框选中
+                    document.querySelectorAll('.table-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+                }
+            });
+
+            // 加载人员数据
+            function loadPersonDataForTable(personName, dataKey) {
+                fetch(`/api/person/${personName}/data/${dataKey}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const container = document.getElementById('data-input-container');
+                        
+                        if (data.success) {
+                            // 获取表格配置以了解列数
+                            fetch('/api/table-configs')
+                                .then(response => response.json())
+                                .then(configData => {
+                                    if (configData.success) {
+                                        const tableConfig = configData.config.tables.find(
+                                            t => t.data_key === dataKey
+                                        );
+                                        
+                                        if (tableConfig) {
+                                            container.innerHTML = createDataInputs(
+                                                personName, 
+                                                dataKey, 
+                                                data.data, 
+                                                tableConfig
+                                            );
+                                        }
+                                    }
+                                });
+                        } else {
+                            // 如果没有数据，创建空的输入框
+                            fetch('/api/table-configs')
+                                .then(response => response.json())
+                                .then(configData => {
+                                    if (configData.success) {
+                                        const tableConfig = configData.config.tables.find(
+                                            t => t.data_key === dataKey
+                                        );
+                                        
+                                        if (tableConfig) {
+                                            container.innerHTML = createDataInputs(
+                                                personName, 
+                                                dataKey, 
+                                                [], 
+                                                tableConfig
+                                            );
+                                        }
+                                    }
+                                });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('加载人员数据错误:', error);
+                        showNotification('加载人员数据失败', 'error');
+                    });
+            }
+
+            // 创建数据输入框
+            function createDataInputs(personName, dataKey, dataValues, tableConfig) {
+                // 获取表头以确定列数（第一列是人员名称）
+                let html = `<h6>${tableConfig.title} 数据</h6>`;
+                html += `<p class="text-muted small mb-3">人员: ${personName}</p>`;
+                
+                // 获取表头（排除第一列的"员工"）
+                fetch(`/api/table/${tableConfig.id}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const headers = data.table.headers;
+                            // 排除第一列（人员名称）
+                            const dataHeaders = headers.slice(1);
+                            
+                            html += '<div class="row">';
+                            dataHeaders.forEach((header, index) => {
+                                const value = index < dataValues.length ? dataValues[index] : '';
+                                html += `
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">${header}:</label>
+                                        <input type="text" 
+                                            class="form-control data-input" 
+                                            data-header="${header}"
+                                            data-index="${index}"
+                                            value="${value}"
+                                            placeholder="输入数据 (空值将显示为 NA)">
+                                    </div>
+                                `;
+                            });
+                            html += '</div>';
+                            
+                            document.getElementById('data-input-container').innerHTML = html;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('获取表头错误:', error);
+                    });
+                
+                return '<div class="text-center"><div class="spinner-border spinner-border-sm"></div> 加载中...</div>';
+            }
+
+            // 保存人员数据
+            document.getElementById('save-person-data-btn').addEventListener('click', function() {
+                const personName = document.getElementById('person-select').value;
+                const checkedTables = document.querySelectorAll('.table-checkbox:checked');
+                
+                if (!personName) {
+                    showNotification('请先选择人员', 'error');
+                    return;
+                }
+                
+                if (checkedTables.length === 0) {
+                    showNotification('请至少选择一个表格类型', 'error');
+                    return;
+                }
+                
+                // 收集所有选中的表格数据
+                const dataToSave = [];
+                
+                checkedTables.forEach(tableCheckbox => {
+                    const dataKey = tableCheckbox.value;
+                    const dataInputs = document.querySelectorAll('.data-input');
+                    
+                    if (dataInputs.length > 0) {
+                        const dataValues = [];
+                        dataInputs.forEach(input => {
+                            dataValues.push(input.value.trim());
+                        });
+                        
+                        dataToSave.push({
+                            dataKey: dataKey,
+                            data: dataValues
+                        });
+                    }
+                });
+                
+                // 逐个保存数据
+                let savedCount = 0;
+                let totalCount = dataToSave.length;
+                
+                dataToSave.forEach(item => {
+                    fetch(`/api/person/${personName}/data/${item.dataKey}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ data: item.data })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        savedCount++;
+                        
+                        if (savedCount === totalCount) {
+                            showNotification(`${personName} 的数据已保存`, 'success');
+                            // 关闭面板并刷新页面
+                            setTimeout(() => {
+                                document.getElementById('person-management-panel').style.display = 'none';
+                                overlay.style.display = 'none';
+                                location.reload();
+                            }, 1500);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('保存数据错误:', error);
+                        showNotification('保存数据失败: ' + error.message, 'error');
+                    });
+                });
+            });
+
+            // 添加新人员
+            document.getElementById('confirm-add-person-btn').addEventListener('click', function() {
+                const personName = document.getElementById('new-person-name').value.trim();
+                
+                if (!personName) {
+                    showNotification('请输入人员名称', 'error');
+                    return;
+                }
+                
+                // 验证名称（只允许字母、数字、下划线）
+                if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]+$/.test(personName)) {
+                    showNotification('名称只能包含字母、数字、下划线和中文字符', 'error');
+                    return;
+                }
+                
+                // 检查是否已存在
+                fetch('/api/persons')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            if (data.persons.includes(personName)) {
+                                showNotification('该人员已存在', 'error');
+                                return;
+                            }
+                            
+                            // 创建空的数据文件（不创建具体文件，只创建文件夹）
+                            showNotification(`人员 ${personName} 已添加`, 'success');
+                            
+                            // 关闭面板
+                            document.getElementById('add-person-panel').style.display = 'none';
+                            overlay.style.display = 'none';
+                            
+                            // 刷新页面
+                            setTimeout(() => location.reload(), 1000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('检查人员存在错误:', error);
+                        showNotification('操作失败', 'error');
+                    });
+            });
+
+            // 显示数据结构
+            function showDataStructure() {
+                fetch('/api/persons')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            let structure = 'data_dirs/\n';
+                            let stats = {
+                                totalPersons: data.persons.length,
+                                totalDataFiles: 0
+                            };
+                            
+                            // 获取每个人的数据文件
+                            const personPromises = data.persons.map(person => {
+                                return fetch('/api/table-configs')
+                                    .then(response => response.json())
+                                    .then(configData => {
+                                        if (configData.success) {
+                                            const tables = configData.config.tables;
+                                            let personStructure = `  ├── ${person}/\n`;
+                                            let personFileCount = 0;
+                                            
+                                            tables.forEach(table => {
+                                                const dataKey = table.data_key;
+                                                const filePath = `data_dirs/${person}/${dataKey}.json`;
+                                                
+                                                // 检查文件是否存在
+                                                fetch(`/api/person/${person}/data/${dataKey}`)
+                                                    .then(response => response.json())
+                                                    .then(fileData => {
+                                                        if (fileData.success) {
+                                                            personStructure += `  │   ├── ${dataKey}.json ✓\n`;
+                                                            personFileCount++;
+                                                            stats.totalDataFiles++;
+                                                        } else {
+                                                            personStructure += `  │   ├── ${dataKey}.json (无数据)\n`;
+                                                        }
+                                                    })
+                                                    .catch(() => {
+                                                        personStructure += `  │   ├── ${dataKey}.json (无数据)\n`;
+                                                    });
+                                            });
+                                            
+                                            return { structure: personStructure, fileCount: personFileCount };
+                                        }
+                                    });
+                            });
+                            
+                            Promise.all(personPromises).then(results => {
+                                results.forEach(result => {
+                                    structure += result.structure;
+                                });
+                                
+                                structure += '\n数据统计：\n';
+                                structure += `  • 总人员数: ${stats.totalPersons}\n`;
+                                structure += `  • 总数据文件数: ${stats.totalDataFiles}\n`;
+                                structure += `  • 平均每人数据文件数: ${(stats.totalDataFiles / stats.totalPersons).toFixed(1)}`;
+                                
+                                document.getElementById('data-structure-content').textContent = structure;
+                                document.getElementById('data-structure-panel').style.display = 'block';
+                                overlay.style.display = 'block';
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('显示数据结构错误:', error);
+                        showNotification('加载数据结构失败', 'error');
+                    });
+            }
+
+            // 绑定其他按钮事件
+            document.getElementById('cancel-person-btn').addEventListener('click', function() {
+                document.getElementById('person-management-panel').style.display = 'none';
+                overlay.style.display = 'none';
+            });
+
+            document.getElementById('cancel-add-person-btn').addEventListener('click', function() {
+                document.getElementById('add-person-panel').style.display = 'none';
+                overlay.style.display = 'none';
+            });
+
+            document.getElementById('close-structure-btn').addEventListener('click', function() {
+                document.getElementById('data-structure-panel').style.display = 'none';
+                overlay.style.display = 'none';
+            });
+
+            document.getElementById('refresh-structure-btn').addEventListener('click', function() {
+                showDataStructure();
+            });
+
+            // 刷新人员列表
+            function refreshPersonsList() {
+                fetch('/api/persons')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            const personCount = data.persons.length;
+                            showNotification(`当前共有 ${personCount} 个人员`, 'success');
+                        }
+                    });
+            }
+
+            // 页面加载时初始化
+            document.addEventListener('DOMContentLoaded', function() {
+                // 原有的初始化代码...
+                
+                // 显示当前数据源信息
+                setTimeout(() => {
+                    fetch('/api/persons')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                const orderStatus = document.getElementById('order-status');
+                                orderStatus.innerHTML += ` | ${data.persons.length} 个人员`;
+                            }
+                        });
+                }, 1000);
+                // 表格分页和虚拟滚动功能
+                class TablePagination {
+                    constructor(tableId) {
+                        this.tableId = tableId;
+                        this.container = document.querySelector(`#container-${tableId}`);
+                        this.table = this.container.querySelector('.table-custom');
+                        this.tbody = document.querySelector(`#tbody-${tableId}`);
+                        this.paginationContainer = document.querySelector(`#pagination-${tableId}`);
+                        this.totalRows = parseInt(this.container.querySelector('.row-count-info .count-number').textContent);
+                        
+                        // 分页配置
+                        this.config = {
+                            pageSize: 20,
+                            currentPage: 1,
+                            maxVisiblePages: 5,
+                            scrollThreshold: 100 // 滚动加载阈值（像素）
+                        };
+                        
+                        // 虚拟滚动配置
+                        this.virtualScroll = {
+                            enabled: false,
+                            visibleRows: 30,
+                            bufferRows: 10,
+                            rowHeight: null,
+                            scrollTop: 0
+                        };
+                        
+                        this.init();
+                    }
+                    
+                    init() {
+                        this.calculateRowHeight();
+                        this.setupEventListeners();
+                        this.updateDisplay();
+                        
+                        // 如果行数很多，默认显示分页
+                        if (this.totalRows > 50) {
+                            this.showPagination();
+                        }
+                    }
+                    
+                    calculateRowHeight() {
+                        if (this.tbody.children.length > 0) {
+                            const firstRow = this.tbody.children[0];
+                            this.virtualScroll.rowHeight = firstRow.offsetHeight;
+                        }
+                    }
+                    
+                    setupEventListeners() {
+                        // 分页按钮事件
+                        this.paginationContainer?.querySelector('.first-page')?.addEventListener('click', () => this.goToPage(1));
+                        this.paginationContainer?.querySelector('.prev-page')?.addEventListener('click', () => this.prevPage());
+                        this.paginationContainer?.querySelector('.next-page')?.addEventListener('click', () => this.nextPage());
+                        this.paginationContainer?.querySelector('.last-page')?.addEventListener('click', () => this.goToLastPage());
+                        
+                        // 每页显示数量更改
+                        const pageSizeSelect = this.paginationContainer?.querySelector('.page-size-select');
+                        if (pageSizeSelect) {
+                            pageSizeSelect.addEventListener('change', (e) => {
+                                this.config.pageSize = parseInt(e.target.value);
+                                this.config.currentPage = 1;
+                                this.updateDisplay();
+                            });
+                        }
+                        
+                        // 跳转页面输入
+                        const jumpInput = this.paginationContainer?.querySelector('.jump-to-page');
+                        if (jumpInput) {
+                            jumpInput.addEventListener('keypress', (e) => {
+                                if (e.key === 'Enter') {
+                                    const pageNum = parseInt(e.target.value);
+                                    if (pageNum >= 1) {
+                                        this.goToPage(pageNum);
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // 滚动事件（虚拟滚动）
+                        this.container.addEventListener('scroll', (e) => {
+                            if (this.virtualScroll.enabled) {
+                                this.handleScroll(e);
+                            }
+                        });
+                        
+                        // 密度控制
+                        this.setupDensityControls();
+                        
+                        // 快速滚动按钮
+                        this.setupQuickScrollButtons();
+                    }
+                    
+                    setupDensityControls() {
+                        const densityBtns = this.container.querySelectorAll('.density-btn');
+                        densityBtns.forEach(btn => {
+                            btn.addEventListener('click', (e) => {
+                                const density = e.target.getAttribute('data-density');
+                                this.setDensity(density);
+                                
+                                // 更新激活状态
+                                densityBtns.forEach(b => b.classList.remove('active'));
+                                e.target.classList.add('active');
+                            });
+                        });
+                    }
+                    
+                    setupQuickScrollButtons() {
+                        const scrollTopBtn = this.container.querySelector('.scroll-to-top');
+                        const scrollBottomBtn = this.container.querySelector('.scroll-to-bottom');
+                        
+                        if (scrollTopBtn) {
+                            scrollTopBtn.addEventListener('click', () => {
+                                this.container.scrollTo({ top: 0, behavior: 'smooth' });
+                            });
+                        }
+                        
+                        if (scrollBottomBtn) {
+                            scrollBottomBtn.addEventListener('click', () => {
+                                this.container.scrollTo({ 
+                                    top: this.container.scrollHeight - this.container.clientHeight, 
+                                    behavior: 'smooth' 
+                                });
+                            });
+                        }
+                    }
+                    
+                    setDensity(density) {
+                        this.container.classList.remove('dense-mode', 'compact-mode');
+                        
+                        switch(density) {
+                            case 'dense':
+                                this.container.classList.add('dense-mode');
+                                this.virtualScroll.visibleRows = 50;
+                                break;
+                            case 'compact':
+                                this.container.classList.add('compact-mode');
+                                this.virtualScroll.visibleRows = 40;
+                                break;
+                            default:
+                                this.virtualScroll.visibleRows = 30;
+                        }
+                        
+                        if (this.virtualScroll.enabled) {
+                            this.updateVirtualScroll();
+                        }
+                    }
+                    
+                    showPagination() {
+                        if (this.paginationContainer) {
+                            this.paginationContainer.style.display = 'flex';
+                            this.updatePaginationUI();
+                        }
+                    }
+                    
+                    hidePagination() {
+                        if (this.paginationContainer) {
+                            this.paginationContainer.style.display = 'none';
+                        }
+                    }
+                    
+                    togglePagination() {
+                        if (this.paginationContainer.style.display === 'none') {
+                            this.showPagination();
+                            this.disableVirtualScroll();
+                        } else {
+                            this.hidePagination();
+                            this.enableVirtualScroll();
+                        }
+                    }
+                    
+                    enableVirtualScroll() {
+                        this.virtualScroll.enabled = true;
+                        this.container.style.maxHeight = '600px';
+                        this.updateVirtualScroll();
+                    }
+                    
+                    disableVirtualScroll() {
+                        this.virtualScroll.enabled = false;
+                        this.showAllRows();
+                    }
+                    
+                    updateVirtualScroll() {
+                        if (!this.virtualScroll.enabled) return;
+                        
+                        const scrollTop = this.container.scrollTop;
+                        const scrollHeight = this.container.scrollHeight;
+                        const clientHeight = this.container.clientHeight;
+                        
+                        // 计算可见区域
+                        const startRow = Math.floor(scrollTop / this.virtualScroll.rowHeight);
+                        const endRow = Math.min(
+                            startRow + this.virtualScroll.visibleRows,
+                            this.totalRows
+                        );
+                        
+                        // 添加缓冲行
+                        const bufferStart = Math.max(0, startRow - this.virtualScroll.bufferRows);
+                        const bufferEnd = Math.min(
+                            endRow + this.virtualScroll.bufferRows,
+                            this.totalRows
+                        );
+                        
+                        // 更新显示的行
+                        this.showRows(bufferStart, bufferEnd);
+                        
+                        // 更新滚动指示器
+                        this.updateScrollIndicator(startRow, endRow);
+                    }
+                    
+                    showRows(start, end) {
+                        // 清空表格
+                        this.tbody.innerHTML = '';
+                        
+                        // 获取所有行数据（需要从服务器或缓存获取）
+                        const allRows = this.getAllRowsData();
+                        
+                        // 显示指定范围的行
+                        for (let i = start; i < end; i++) {
+                            const rowData = allRows[i];
+                            if (rowData) {
+                                const row = this.createTableRow(rowData, i);
+                                this.tbody.appendChild(row);
+                            }
+                        }
+                        
+                        // 设置占位高度
+                        const placeholderHeight = this.totalRows * this.virtualScroll.rowHeight;
+                        this.tbody.style.height = `${placeholderHeight}px`;
+                        
+                        // 设置偏移量
+                        this.tbody.style.transform = `translateY(${start * this.virtualScroll.rowHeight}px)`;
+                    }
+                    
+                    showAllRows() {
+                        const allRows = this.getAllRowsData();
+                        this.tbody.innerHTML = '';
+                        
+                        allRows.forEach((rowData, index) => {
+                            const row = this.createTableRow(rowData, index);
+                            this.tbody.appendChild(row);
+                        });
+                        
+                        // 重置样式
+                        this.tbody.style.height = '';
+                        this.tbody.style.transform = '';
+                    }
+                    
+                    getAllRowsData() {
+                        // 这里应该从服务器或缓存获取所有行数据
+                        // 简化示例：从现有行获取
+                        const rows = [];
+                        const tableRows = this.table.querySelectorAll('tbody tr');
+                        tableRows.forEach(row => {
+                            const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent);
+                            rows.push(cells);
+                        });
+                        
+                        // 如果有更多数据，可以从服务器获取
+                        return rows;
+                    }
+                    
+                    createTableRow(rowData, rowIndex) {
+                        const tr = document.createElement('tr');
+                        
+                        rowData.forEach((cell, cellIndex) => {
+                            const td = document.createElement('td');
+                            
+                            // 这里可以添加格式化和样式逻辑
+                            if (cell === 'NA') {
+                                td.innerHTML = '<span class="status-na">NA</span>';
+                            } else if (this.isPerformanceTable() && cellIndex > 0) {
+                                const num = parseFloat(cell);
+                                if (!isNaN(num)) {
+                                    if (num >= 90) {
+                                        td.innerHTML = `<span class="status-completed">${cell}</span>`;
+                                    } else if (num >= 80) {
+                                        td.innerHTML = `<span class="status-adequate">${cell}</span>`;
+                                    } else {
+                                        td.innerHTML = `<span class="status-low">${cell}</span>`;
+                                    }
+                                } else {
+                                    td.textContent = cell;
+                                }
+                            } else {
+                                td.textContent = cell;
+                            }
+                            
+                            tr.appendChild(td);
+                        });
+                        
+                        return tr;
+                    }
+                    
+                    isPerformanceTable() {
+                        return this.tableId.includes('performance');
+                    }
+                    
+                    handleScroll(e) {
+                        if (!this.virtualScroll.enabled) return;
+                        
+                        const container = e.target;
+                        const scrollTop = container.scrollTop;
+                        const scrollHeight = container.scrollHeight;
+                        const clientHeight = container.clientHeight;
+                        
+                        // 检查是否接近底部
+                        if (scrollHeight - scrollTop - clientHeight < this.config.scrollThreshold) {
+                            // 加载更多数据
+                            this.loadMoreData();
+                        }
+                        
+                        this.updateVirtualScroll();
+                    }
+                    
+                    loadMoreData() {
+                        // 这里可以实现无限滚动加载更多数据
+                        console.log('加载更多数据...');
+                        // 在实际应用中，这里应该从服务器加载更多数据
+                    }
+                    
+                    updateScrollIndicator(startRow, endRow) {
+                        const indicator = this.container.querySelector('.table-scroll-indicator');
+                        if (indicator) {
+                            indicator.innerHTML = `
+                                <i class="fas fa-mouse-pointer"></i> 
+                                显示 ${startRow + 1}-${endRow} 行，共 ${this.totalRows} 行
+                            `;
+                        }
+                    }
+                    
+                    updateDisplay() {
+                        if (this.virtualScroll.enabled) {
+                            this.updateVirtualScroll();
+                        } else if (this.paginationContainer.style.display !== 'none') {
+                            this.updatePageDisplay();
+                        }
+                    }
+                    
+                    updatePageDisplay() {
+                        const start = (this.config.currentPage - 1) * this.config.pageSize;
+                        const end = Math.min(start + this.config.pageSize, this.totalRows);
+                        
+                        // 更新范围显示
+                        const rangeElement = this.paginationContainer.querySelector('.current-range');
+                        if (rangeElement) {
+                            rangeElement.textContent = `${start + 1}-${end}`;
+                        }
+                        
+                        // 显示当前页的数据
+                        this.showRows(start, end);
+                        
+                        // 更新分页UI
+                        this.updatePaginationUI();
+                    }
+                    
+                    updatePaginationUI() {
+                        const totalPages = Math.ceil(this.totalRows / this.config.pageSize);
+                        
+                        // 更新按钮状态
+                        this.paginationContainer.querySelector('.first-page').disabled = this.config.currentPage === 1;
+                        this.paginationContainer.querySelector('.prev-page').disabled = this.config.currentPage === 1;
+                        this.paginationContainer.querySelector('.next-page').disabled = this.config.currentPage === totalPages;
+                        this.paginationContainer.querySelector('.last-page').disabled = this.config.currentPage === totalPages;
+                        
+                        // 更新页码
+                        this.updatePageNumbers(totalPages);
+                        
+                        // 更新跳转输入的最大值
+                        const jumpInput = this.paginationContainer.querySelector('.jump-to-page');
+                        if (jumpInput) {
+                            jumpInput.max = totalPages;
+                            jumpInput.value = '';
+                        }
+                    }
+                    
+                    updatePageNumbers(totalPages) {
+                        const numbersContainer = this.paginationContainer.querySelector('.pagination-numbers');
+                        numbersContainer.innerHTML = '';
+                        
+                        const currentPage = this.config.currentPage;
+                        const maxVisible = this.config.maxVisiblePages;
+                        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                        
+                        // 调整开始页码以确保显示足够数量的页码
+                        if (endPage - startPage + 1 < maxVisible) {
+                            startPage = Math.max(1, endPage - maxVisible + 1);
+                        }
+                        
+                        // 添加"..."如果不在第一页
+                        if (startPage > 1) {
+                            const ellipsis = document.createElement('span');
+                            ellipsis.className = 'page-number';
+                            ellipsis.textContent = '...';
+                            ellipsis.style.cursor = 'default';
+                            numbersContainer.appendChild(ellipsis);
+                        }
+                        
+                        // 添加页码按钮
+                        for (let i = startPage; i <= endPage; i++) {
+                            const pageBtn = document.createElement('button');
+                            pageBtn.className = 'page-number';
+                            if (i === currentPage) {
+                                pageBtn.classList.add('active');
+                            }
+                            pageBtn.textContent = i;
+                            pageBtn.addEventListener('click', () => this.goToPage(i));
+                            numbersContainer.appendChild(pageBtn);
+                        }
+                        
+                        // 添加"..."如果不在最后一页
+                        if (endPage < totalPages) {
+                            const ellipsis = document.createElement('span');
+                            ellipsis.className = 'page-number';
+                            ellipsis.textContent = '...';
+                            ellipsis.style.cursor = 'default';
+                            numbersContainer.appendChild(ellipsis);
+                        }
+                    }
+                    
+                    goToPage(pageNum) {
+                        const totalPages = Math.ceil(this.totalRows / this.config.pageSize);
+                        pageNum = Math.max(1, Math.min(pageNum, totalPages));
+                        
+                        this.config.currentPage = pageNum;
+                        this.updateDisplay();
+                        
+                        // 滚动到表格顶部
+                        this.container.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                    
+                    goToLastPage() {
+                        const totalPages = Math.ceil(this.totalRows / this.config.pageSize);
+                        this.goToPage(totalPages);
+                    }
+                    
+                    prevPage() {
+                        if (this.config.currentPage > 1) {
+                            this.goToPage(this.config.currentPage - 1);
+                        }
+                    }
+                    
+                    nextPage() {
+                        const totalPages = Math.ceil(this.totalRows / this.config.pageSize);
+                        if (this.config.currentPage < totalPages) {
+                            this.goToPage(this.config.currentPage + 1);
+                        }
+                    }
+                }
+
+                // 初始化所有表格的分页功能
+                function initTablePagination() {
+                    const tables = document.querySelectorAll('.table-container');
+                    const paginationInstances = {};
+                    
+                    tables.forEach(table => {
+                        const tableId = table.getAttribute('data-table-id');
+                        paginationInstances[tableId] = new TablePagination(tableId);
+                    });
+                    
+                    // 分页模式切换按钮
+                    document.querySelectorAll('.toggle-pagination-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const tableId = this.getAttribute('data-table');
+                            paginationInstances[tableId]?.togglePagination();
+                            
+                            // 更新按钮文本
+                            const isPagination = document.querySelector(`#pagination-${tableId}`).style.display !== 'none';
+                            this.innerHTML = isPagination ? 
+                                '<i class="fas fa-scroll"></i> 滚动模式' : 
+                                '<i class="fas fa-list-ol"></i> 分页模式';
+                        });
+                    });
+                    
+                    // 滚动模式切换按钮
+                    document.querySelectorAll('.toggle-scroll-btn').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            const tableId = this.getAttribute('data-table');
+                            const instance = paginationInstances[tableId];
+                            
+                            if (instance) {
+                                if (instance.virtualScroll.enabled) {
+                                    instance.disableVirtualScroll();
+                                    this.innerHTML = '<i class="fas fa-scroll"></i> 启用滚动';
+                                } else {
+                                    instance.enableVirtualScroll();
+                                    this.innerHTML = '<i class="fas fa-ban"></i> 禁用滚动';
+                                }
+                            }
+                        });
+                    });
+                    
+                    return paginationInstances;
+                }
+
+                // 页面加载完成后初始化
+                document.addEventListener('DOMContentLoaded', function() {
+                    // 延迟初始化，确保DOM完全加载
+                    setTimeout(() => {
+                        initTablePagination();
+                    }, 500);
+                });    
+            });
+        });
+    </script>
+</body>
+</html>
