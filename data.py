@@ -1,13 +1,38 @@
 import json
+import math
 import os
 import glob
 from datetime import datetime
+from typing import List
+
+import numpy as np
+import pandas as pd
 
 # 配置目录
 CONFIG_DIR = 'data_config'
 HEADERS_DIR = os.path.join(CONFIG_DIR, 'headers')
-DATA_DIRS = 'data_dirs'  # 包含多个子文件夹的根目录
+DATA_DIRS = 'data_dirs'  # 包含多个子文件夹的根目录 data_dirs data_lit
 IMPORTANT_DIR = 'data_dir_important'  # 标兵数据目录
+
+
+CELL_H_PX = 40
+
+MIN_COL_W_PX = 40
+MAX_COL_W_PX = 260
+CHAR_PX = 8
+COL_PAD_PX = 22
+
+# x 轴子指标（底部斜排）参数
+FOOTER_ROT_DEG = 35.0          # 使用 +35deg 或 -35deg 都可，CSS里统一用 -35deg
+FOOTER_FONT_PX = 11
+FOOTER_PAD_TOP = 2             # 文字距热力图（footer行顶部）尽量小
+FOOTER_PAD_BOTTOM = 6          # 防裁切安全垫
+FOOTER_MIN_H = 56
+FOOTER_MAX_H = 130
+
+YAXIS_WIDTH_DEFAULT = 170
+CBAR_WIDTH = 88
+MIN_LEGEND_PX = 220
 
 def get_important_persons():
     """获取标兵人员列表"""
@@ -37,7 +62,10 @@ def load_important_person_data(person_name, table_config):
                     data_values = data[data_key]
                     if not isinstance(data_values, list):
                         data_values = [data_values]
-                    
+                    row_data = [f"⭐ {person_name}"] + data_values
+                    return row_data
+                elif  data_key == 'test':   
+                    data_values = [data]
                     # 添加标兵标记
                     row_data = [f"⭐ {person_name}"] + data_values
                     return row_data
@@ -66,7 +94,7 @@ def load_important_person_data(person_name, table_config):
     # 都没有则返回NA
     return create_na_row(f"⭐ {person_name}", table_config)
 
-def build_table_data_with_important(table_config):
+def build_table_data_with_important(table_config,keyword=None):
     """构建包含标兵数据的表格数据"""
     # 加载表头
     headers = load_headers(table_config['header_file'])
@@ -75,7 +103,7 @@ def build_table_data_with_important(table_config):
     important_persons = get_important_persons()
     
     # 获取普通人员（排除标兵）
-    all_persons = get_person_names()
+    all_persons = get_person_names(keyword)
     normal_persons = [p for p in all_persons if p not in important_persons]
     
     # 首先添加标兵数据
@@ -83,7 +111,7 @@ def build_table_data_with_important(table_config):
     for person in important_persons:
         row_data = load_important_person_data(person, table_config)
         # 确保数据长度与表头匹配
-        if len(row_data) < len(headers):
+        if len(row_data) < len(headers) and 'A' not in row_data:
             row_data = row_data + ["NA"] * (len(headers) - len(row_data))
         elif len(row_data) > len(headers):
             row_data = row_data[:len(headers)]
@@ -114,17 +142,148 @@ def build_table_data_with_important(table_config):
         'total_count': len(all_rows)             # 总行数
     }
 
-def get_all_tables():
-    """获取所有表格的数据（包含标兵）"""
+def get_tables_cfg():
     config = load_config()
+    return config
+
+def get_all_tables(keyword=None):
+    """获取所有表格的数据（包含标兵）"""
+    config = get_tables_cfg()
     tables = []
     
     for table_config in config.get('tables', []):
-        table_data = build_table_data_with_important(table_config)
+        table_data = build_table_data_with_important(table_config, keyword)
         tables.append(table_data)
-    
+    models_all = get_models_all(tables)
+    metrics_all, headers_all, metric_data_dict = get_metrics_headers_all(tables)
+    chart = get_charts(models_all, metrics_all, headers_all, metric_data_dict)
     return tables
 
+def build_metric_dataframe(models_all, header, rows):
+    df = pd.DataFrame(index=models_all, columns=header, dtype=float)
+    for model in models_all:
+        row_data = rows.get(model, {})
+        for sm, row in zip(header, row_data):
+            df.loc[model, sm] = row
+    return df
+
+def footer_height_px(x_labels: List[str]) -> int:
+
+    max_len = max(len(str(x)) for x in x_labels)
+    text_w = max_len * CHAR_PX
+    theta = math.radians(FOOTER_ROT_DEG)
+
+    # 斜排后竖向投影 + 字体高度 + 上下安全垫
+    h = int(math.sin(theta) * text_w + (FOOTER_FONT_PX * 1.6) + FOOTER_PAD_TOP + FOOTER_PAD_BOTTOM)
+    return max(FOOTER_MIN_H, min(FOOTER_MAX_H, h))
+
+def get_charts(models_all, metrics_all, headers_all, metric_data_dict):
+    charts = []
+    global_footer_h = FOOTER_MIN_H
+    
+    # 第一遍：算出每个图自己的 footer_h，并取最大作为全局 footer_h
+    tmp = []
+    for header, metric in zip(headers_all, metrics_all):
+        df = build_metric_dataframe(models_all, header[1:], metric_data_dict[metric])
+        if df.empty:
+            tmp.append({"metric": metric, "empty": True})
+            continue
+
+        y_labels = df.index.tolist()
+        x_labels = df.columns.tolist()
+
+        fh = footer_height_px(x_labels)
+        global_footer_h = max(global_footer_h, fh)
+
+        tmp.append(
+            {
+                "metric": metric,
+                "empty": False,
+                "df": df,          # 暂存
+                "x_labels": x_labels,
+                "y_labels": y_labels,
+            }
+        )
+
+    # 第二遍：真正生成 charts，统一使用 global_footer_h（保证每个大指标间距一致）
+    for item in tmp:
+        if item.get("empty"):
+            charts.append({"metric": item["metric"], "empty": True})
+            continue
+
+        metric = item["metric"]
+        df = item["df"]
+        y_labels = item["y_labels"]
+        x_labels = item["x_labels"]
+
+        raw = df.values.astype(float)
+        z_norm, col_min, col_max = normalize_by_column(raw, robust=robust)
+
+        text = None
+        if show_text:
+            text = [[fmt_cell(float(v), precision) for v in row] for row in raw]
+
+        col_widths = compute_col_widths([str(x) for x in x_labels], text)
+        min_matrix_width = int(sum(col_widths))
+
+        n_rows = len(y_labels)
+        footer_h = int(global_footer_h)  # ✅统一
+        height = int(n_rows * CELL_H_PX + footer_h)
+
+        legend_target = min(height, max(height, MIN_LEGEND_PX))
+        yaxis_width = estimate_yaxis_width_px([str(x) for x in y_labels])
+
+        customdata = []
+        for i in range(raw.shape[0]):
+            row_cd = []
+            for j in range(raw.shape[1]):
+                row_cd.append([
+                    None if np.isnan(raw[i, j]) else float(raw[i, j]),
+                    None if np.isnan(col_min[j]) else float(col_min[j]),
+                    None if np.isnan(col_max[j]) else float(col_max[j]),
+                ])
+            customdata.append(row_cd)
+
+        charts.append(
+            {
+                "metric": metric,
+                "empty": False,
+                "x": x_labels,
+                "y": y_labels,
+                "z": z_norm.tolist(),
+                "text": text,
+                "customdata": customdata,
+                "col_widths": col_widths,
+                "min_matrix_width": min_matrix_width,
+                "height": height,
+                "footer_h": footer_h,
+                "yaxis_width": int(yaxis_width),
+                "legend_target": int(legend_target),
+            }
+        )
+
+def get_metrics_headers_all(tables):
+    """获取所有表格的指标"""
+    metrics_all = []
+    headers_all = []
+    metric_data_dict = {}
+    for table in tables:
+        title = table['title']
+        metric_data_dict[title] = {}
+        metrics_all.append(title)
+        headers_all.append(table['headers'])
+        for row in table['rows']:
+            metric_data_dict[title][row[0]] = row[1:]
+    return metrics_all, headers_all, metric_data_dict
+
+def get_models_all(tables):
+    """获取所有表格的数据模型"""
+    models_all = set()
+    for table in tables:
+        for row in table['rows']:
+            models_all.add(row[0]) 
+    return list(models_all)
+# ------------------------------========================================
 def get_important_person_stats():
     """获取标兵统计信息"""
     important_persons = get_important_persons()
@@ -133,19 +292,6 @@ def get_important_person_stats():
         'persons': important_persons,
         'has_important': len(important_persons) > 0
     }
-
-def initialize_directories():
-    """初始化必要的目录结构"""
-    # 原有的代码...
-    
-    # 创建标兵目录
-    os.makedirs(IMPORTANT_DIR, exist_ok=True)
-    
-    # 检查标兵目录
-    print(f"标兵数据目录: {IMPORTANT_DIR}")
-    important_count = len(get_important_persons())
-    print(f"发现 {important_count} 个标兵")
-
 
 # 默认配置
 DEFAULT_CONFIG = {
@@ -190,24 +336,15 @@ def load_headers(header_file):
     config = load_config()
     return config.get("default_headers", ["员工", "数据1", "数据2"])
 
-def get_all_person_dirs():
+def get_all_person_dirs(keyword=None):
     """获取所有个人数据文件夹"""
-    if not os.path.exists(DATA_DIRS):
-        print(f"数据目录 {DATA_DIRS} 不存在")
-        return []
-    
-    # 获取所有子文件夹（排除隐藏文件夹）
     person_dirs = []
-    for item in os.listdir(DATA_DIRS):
-        item_path = os.path.join(DATA_DIRS, item)
-        if os.path.isdir(item_path) and not item.startswith('.'):
-            person_dirs.append({
-                'name': item,  # 文件夹名称作为员工标识
-                'path': item_path
-            })
-    
-    # 按名称排序
-    person_dirs.sort(key=lambda x: x['name'])
+    if keyword and keyword not in ['-1', '0', '0.325', '0.625']:
+        keyword = keyword.split('; ')
+        for i, kw in enumerate(keyword):
+            person_dirs.append({})
+            person_dirs[i]['name']=kw
+            person_dirs[i]['path'] = f'{DATA_DIRS}\\{kw}'
     return person_dirs
 
 def load_person_data(person_dir, table_config):
@@ -322,9 +459,9 @@ def delete_person_data(person_name, data_key):
         print(f"删除 {person_name} 的 {data_key} 数据时出错: {e}")
         return False
 
-def get_person_names():
+def get_person_names(keyword=None):
     """获取所有人员名称列表"""
-    person_dirs = get_all_person_dirs()
+    person_dirs = get_all_person_dirs(keyword)
     return [person['name'] for person in person_dirs]
 
 def get_table_config(table_id):
@@ -373,3 +510,4 @@ def initialize_directories():
 
 # 应用启动时初始化
 initialize_directories()
+get_all_tables()

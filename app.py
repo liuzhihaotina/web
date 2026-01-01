@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, send_file
+from flask import Flask, render_template, request, jsonify, session, send_file, redirect, url_for
 import data
 import json
 import os
@@ -9,15 +9,15 @@ from datetime import datetime
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
 app.config['SESSION_TYPE'] = 'filesystem'
-
 # 从数据模块获取表格配置
 def get_default_table_order():
     """获取默认表格顺序"""
-    tables = data.get_all_tables()
-    return [table['id'] for table in tables]
+    tables = data.get_tables_cfg()['tables']
+    print([table['id'] for table in tables])
+    return ['test_table']+[table['id'] for table in tables]
 
 DEFAULT_TABLE_ORDER = get_default_table_order()
-
+# -----------------------------------------------------------------------------------------------
 @app.route('/')
 def index():
     table_order = session.get('table_order', DEFAULT_TABLE_ORDER)
@@ -39,9 +39,76 @@ def index():
             table_order.append(table['id'])
     
     session['table_order'] = table_order
+    # 获取当前应用的logger
+    app.logger.debug('进入 index 函数')
+    # app.logger.info(f'表格列表: {table_order}')
+    app.logger.info(f'表格内容: {ordered_tables}')
     
-    return render_template('index.html', tables=ordered_tables, now=datetime.now())
+    return render_template('index.html', tables=ordered_tables, table_order=table_order, test_defa='A',
+            now=datetime.now())
 
+@app.route('/api/refresh-tables', methods=['GET', 'POST'])
+def refresh_tables_api():
+    """返回JSON格式的表格数据（保持原有逻辑）"""
+    try:
+        # 获取搜索关键词（如果有）
+        keyword = request.args.get('q', '') if request.method == 'GET' else request.json.get('q', '')
+        
+        # 使用你原有的逻辑，但返回JSON
+        table_order = session.get('table_order', DEFAULT_TABLE_ORDER)
+        
+        # 根据关键词获取数据
+        if keyword:
+            # 如果有搜索功能
+            tables_data = data.get_all_tables(keyword)
+        else:
+            tables_data = data.get_all_tables()  # 或你的默认参数
+        
+        # 按照保存的顺序重新排序表格
+        ordered_tables = []
+        table_dict = {table['id']: table for table in tables_data}
+        
+        # 首先添加顺序中存在的表格
+        for table_id in table_order:
+            if table_id in table_dict:
+                ordered_tables.append(table_dict[table_id])
+        
+        # 然后添加其他表格
+        for table in tables_data:
+            if table['id'] not in table_order:
+                ordered_tables.append(table)
+                table_order.append(table['id'])
+        
+        # 更新session中的顺序
+        session['table_order'] = table_order
+        
+        # 返回JSON响应
+        return jsonify({
+            'success': True,
+            'tables': ordered_tables,
+            'count': len(ordered_tables),
+            'table_order': table_order,
+            'keyword': keyword if keyword else '',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'message': '刷新表格失败'
+        }), 500
+    
+# 后端新增API，提供表格配置信息
+@app.route('/api/get_tables_config')
+def get_tables_config():
+    tables_cfg = get_default_table_order()
+    
+    return jsonify({
+        'success': True,
+        'tables': tables_cfg
+    })
+# -----------------------------------------------------------------------------------------------
 @app.route('/update_order', methods=['POST'])
 def update_order():
     try:
@@ -108,8 +175,15 @@ def get_table(table_id):
 @app.route('/api/persons', methods=['GET'])
 def get_persons():
     """获取所有人员列表"""
+    # 获取当前应用的logger
+    # app.logger.debug('进入 get_persons 函数')
+    
+    # keyword = request.args.get('q', '')  # 获取查询参数
+    # app.logger.info(f'搜索关键词: {keyword}')
     try:
         persons = data.get_person_names()
+        app.logger.info(f'persons: {persons}')
+        print(f'person={persons}')
         return jsonify({
             'success': True,
             'persons': persons
@@ -518,4 +592,16 @@ def clean_sheet_name(name):
 if __name__ == '__main__':
     # 初始化目录结构
     data.initialize_directories()
-    app.run(debug=True, port=5000)
+    # 设置日志级别
+    import logging
+    logging.basicConfig(
+        level=logging.DEBUG,  # DEBUG级别会显示所有信息
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            # logging.FileHandler('app.log'),  # 输出到文件
+            logging.StreamHandler()           # 输出到控制台
+        ]
+    )
+    
+    app.logger.setLevel(logging.DEBUG)
+    app.run(debug=True, port=5001)
