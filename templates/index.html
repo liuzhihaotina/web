@@ -4,16 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Metrics Heatmaps</title>
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Bootstrap Icons -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
-  <!-- Font Awesome（您代码中已使用） -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <!-- user -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
+
 <body>
   <div class="page">
     <header class="header">
@@ -60,63 +57,38 @@
           </div>
 
           <div class="col">
-
             <div class="dropdown">
-                <button type="button" class="btn dropdown-toggle" 
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fas fa-ruler-vertical"></i> 高度阈值 {{ height }}
-                </button>
-                <ul class="dropdown-menu">
-                    <li>
-                        <a class="dropdown-item" href="#" id="height-btn4">
-                            <i class="fas fa-sort-amount-up"></i> 0.625
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="#" id="height-btn3">
-                            <i class="fas fa-arrow-up"></i> 0.325
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="#" id="height-btn2">
-                            <i class="fas fa-arrow-right"></i> 0
-                        </a>
-                    </li>
-                    
-                    <li>
-                        <a class="dropdown-item" href="#" id="height-btn1">
-                            <i class="fas fa-sort-amount-down"></i> -1
-                        </a>
-                    </li>
-                </ul>
+              <button type="button" class="btn dropdown-toggle"
+                      data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-ruler-vertical"></i> 高度阈值 {{ height }}
+              </button>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="#" id="height-btn4"><i class="fas fa-sort-amount-up"></i> 0.625</a></li>
+                <li><a class="dropdown-item" href="#" id="height-btn3"><i class="fas fa-arrow-up"></i> 0.325</a></li>
+                <li><a class="dropdown-item" href="#" id="height-btn2"><i class="fas fa-arrow-right"></i> 0</a></li>
+                <li><a class="dropdown-item" href="#" id="height-btn1"><i class="fas fa-sort-amount-down"></i> -1</a></li>
+              </ul>
             </div>
             <input type="hidden" name="height" id="height-hidden" value="{{ height|default(-1, true) }}">
 
-            <!-- 新增：Occ Threshold 滑动条 -->
             <label for="occ-threshold-slider" class="form-label">Occ Threshold</label>
-
             <div class="range-wrap">
-                <input type="range" class="form-range" id="occ-threshold-slider"
-                        min="0.5" max="0.7" step="0.02"
-                        value="{{ occ_threshold|default(0.60, true) }}">
+              <input type="range" class="form-range" id="occ-threshold-slider"
+                     min="0.5" max="0.7" step="0.02"
+                     value="{{ occ_threshold|default(0.60, true) }}">
 
-                <!-- 固定显示在滑条正中间底部 -->
-                <div id="occ-threshold-midvalue">
-                    {{ occ_threshold|default(0.60, true) }}
-                </div>
+              <div id="occ-threshold-midvalue">
+                {{ occ_threshold|default(0.60, true) }}
+              </div>
 
-                <div class="range-labels">
-                    <span>0.5</span>
-                    <span>0.7</span>
-                </div>
+              <div class="range-labels">
+                <span>0.5</span>
+                <span>0.7</span>
+              </div>
             </div>
-            
-            <!-- 关键：隐藏字段，让表单提交时带上参数 -->
-            <input
-            type="hidden"
-            name="occ_threshold"
-            id="occ-threshold-hidden"
-            value="{{ occ_threshold|default(0.60, true) }}">
+
+            <input type="hidden" name="occ_threshold" id="occ-threshold-hidden"
+                   value="{{ occ_threshold|default(0.60, true) }}">
 
             <button class="btn" type="submit">刷新展示</button>
           </div>
@@ -157,6 +129,8 @@
                             {% set cmax = c.customdata[i][j][2] %}
                             <td class="cell"
                                 data-rel="{{ rel }}"
+                                data-metric="{{ c.metric }}"
+                                data-x="{{ c.x[j] }}"
                                 title="Model={{ c.y[i] }}&#10;Submetric={{ c.x[j] }}&#10;Raw={{ raw }}&#10;ColRange=[{{ cmin }}, {{ cmax }}]&#10;Rel(0~1)={{ rel }}">
                               <span class="cell-text">{% if c.text %}{{ c.text[i][j] }}{% endif %}</span>
                             </td>
@@ -176,16 +150,28 @@
                 </div>
               </div>
 
+              <!-- ✅ 双图例：红 + 绿 -->
               <div class="cbar-pane" style="width: {{ constants.CBAR_WIDTH }}px;">
                 <div class="legend-wrap" style="height: {{ c.height }}px;">
-                  <div class="legend" data-target="{{ c.legend_target }}">
+                  <div class="legend legend-dual" data-target="{{ c.legend_target }}">
                     <div class="legend-title">列内相对</div>
-                    <div class="legend-bar"></div>
-                    <div class="legend-ticks">
-                      <div class="tick">高</div>
-                      <div class="tick">中</div>
-                      <div class="tick">低</div>
+
+                    <div class="legend-bars">
+                      <div class="legend-block">
+                        <div class="legend-subtitle">红</div>
+                        <div class="legend-bar legend-bar-red"></div>
+                      </div>
+                      <div class="legend-block">
+                        <div class="legend-subtitle">绿</div>
+                        <div class="legend-bar legend-bar-green"></div>
+                        <div class="legend-ticks">
+                          <div class="tick">高</div>
+                          <div class="tick">中</div>
+                          <div class="tick">低</div>
+                        </div>
+                      </div>
                     </div>
+
                   </div>
                 </div>
               </div>
@@ -197,260 +183,274 @@
       {% endfor %}
     </main>
   </div>
-    <!-- jQuery（Bootstrap 5可选，但建议添加） -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-    <!-- Bootstrap JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- 主JavaScript文件 -->
-    <script>
-        const COLORFUL = [
-        [0.00, "#30123b"],
-        [0.10, "#3b4cc0"],
-        [0.20, "#2c7ef7"],
-        [0.30, "#1fb3ff"],
-        [0.40, "#28e2d9"],
-        [0.50, "#52fa7b"],
-        [0.60, "#b6f53c"],
-        [0.70, "#f4e61e"],
-        [0.80, "#fca50a"],
-        [0.90, "#f05b11"],
-        [1.00, "#7a0403"],
-        ];
-        
-        const DETAILED_GOR = [
-            // [0.00, "#716464"], 
-            [0.0, "#303030"],
-            [0.10, "#3f3f3f"],
-            [0.15, "#4e4e4e"],
-            [0.20, "#5d5d5d"],
-            [0.25, "#6d4a2a"],  // 开始带橙色
-            [0.30, "#7d552f"],
-            [0.35, "#8d6135"],
-            [0.40, "#9d6c3a"],  // 橙棕
-            [0.45, "#ad7840"],
-            [0.50, "#bd8345"],  // 中等橙
-            [0.55, "#cd8f4b"],
-            [0.60, "#dd9a50"],  // 橙色
-            [0.65, "#eda655"],
-            [0.70, "#fda15a"],  // 亮橙
-            [0.75, "#ff8c4d"],  // 橙红过渡
-            [0.80, "#ff7740"],  // 红橙
-            [0.85, "#d6452d"],  // 橙红
-            [0.90, "#d6452d"],  // 红
-            [0.95, "#b21b1b"],  // 亮红
-            [1.00, "#7f0b0b"],  // 鲜红
-        ];
+  <script>
+    // ------------------------------------单色绿↓-------------------------------------------
+    const MONO_GREEN = [
+      [0.00, "#F0FFF4"],
+      [0.10, "#DCFFE4"],
+      [0.20, "#B8F5C6"],
+      [0.30, "#94E8A8"],
+      [0.40, "#70DB8A"],
+      [0.50, "#4CCE6C"],
+      [0.60, "#28C14E"],
+      [0.70, "#20A040"],
+      [0.80, "#187F32"],
+      [0.90, "#105E24"],
+      [1.00, "#083D16"]
+    ];
+    // ------------------------------------单色绿↑-------------------------------------------
 
-        const TURBO1 = [
-            [0.00, "#99826e"],
-            [0.12, "#b3977f"],
-            [0.24, "#c6a487"],
-            [0.36, "#d8ae8a"],
-            [0.48, "#f3c298"],
-            [0.60, "#f19953"],
-            [0.72, "#e96b2c"],
-            [0.84, "#d6452d"],
-            [0.92, "#b21b1b"],
-            [1.00, "#7f0b0b"]
-        ];
+    // ------------------------------------单色红↓-------------------------------------------
+    const MONO_RED = [
+      [0.00, "#FFF0F0"],
+      [0.10, "#FFE1E1"],
+      [0.20, "#FFB8B8"],
+      [0.30, "#FF8F8F"],
+      [0.40, "#FF6666"],
+      [0.50, "#FF3D3D"],
+      [0.60, "#FF1414"],
+      [0.70, "#CC0000"],
+      [0.80, "#990000"],
+      [0.90, "#880000"],
+      [1.00, "#700000"]
+    ];
+    // ------------------------------------单色红↑-------------------------------------------
+    // const COLOR_RULES = {{ color_code | tojson | safe }};
 
-        const TURBO = DETAILED_GOR;
-        let keyword_ = "{{ keyword }}";
+    // ✅ 这里“硬编码”：每个指标(metric)的每个子指标列(x)用红还是绿
+    // 你只需要按你的真实 metric / submetric 名称补全这里即可。
+    // 未命中映射的列会走 defaultPalette（下面默认红）。
+    const COLOR_RULES = {
+    "🌸 occ阈值": {
+        "月份": "GREEN", "营收(万)": "GREEN", "成本(万)": "RED", "利润(万)": "GREEN", "利润率": "GREEN",
+    },
+    "🚀 项目进度跟踪": {
+        "项目名称": "GREEN", "开始日期": "GREEN", "预计完成": "GREEN", "进度": "GREEN", "状态": "RED"
+    },
+    "⭐ 员工绩效评估": {
+        "季度1": "GREEN", "季度2": "RED", "季度3": "GREEN", "季度4": "GREEN", "年度平均": "GREEN"
+    }
+    };
 
-        function hexToRgb(h) {
-            const x = h.replace("#","").trim();
-            const n = parseInt(x, 16);
-            return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+    const defaultPalette = "RED"; // 没配置就默认红
+    let keyword_ = "{{ keyword }}";
+
+    function choosePalette(metric, xLabel) {
+      const m = COLOR_RULES[metric];
+      if (!m) return defaultPalette;
+      return m[xLabel] || defaultPalette;
+    }
+
+    function paletteStops(name) {
+      return (name === "GREEN") ? MONO_GREEN : MONO_RED;
+    }
+
+    function hexToRgb(h) {
+      const x = h.replace("#","").trim();
+      const n = parseInt(x, 16);
+      return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
+    }
+    function lerp(a,b,t){ return a + (b-a)*t; }
+
+    // ✅ 颜色函数支持传入 palette（红/绿）
+    function turboColor(t, paletteName) {
+      const TURBO = paletteStops(paletteName);
+
+      if (t == null || Number.isNaN(t)) return "rgba(0,0,0,0)";
+      t = Math.max(0, Math.min(1, t));
+      for (let i=0; i<TURBO.length-1; i++){
+        const [t0,c0] = TURBO[i];
+        const [t1,c1] = TURBO[i+1];
+        if (t >= t0 && t <= t1){
+          const u = (t - t0) / (t1 - t0 + 1e-12);
+          const a = hexToRgb(c0), b = hexToRgb(c1);
+          const r = Math.round(lerp(a.r,b.r,u));
+          const g = Math.round(lerp(a.g,b.g,u));
+          const bb = Math.round(lerp(a.b,b.b,u));
+          return `rgb(${r},${g},${bb})`;
         }
-        function lerp(a,b,t){ return a + (b-a)*t; }
+      }
+      return TURBO[TURBO.length-1][1];
+    }
 
-        function turboColor(t) {
-            if (t == null || Number.isNaN(t)) return "rgba(0,0,0,0)";
-            t = Math.max(0, Math.min(1, t));
-            for (let i=0; i<TURBO.length-1; i++){
-                const [t0,c0] = TURBO[i];
-                const [t1,c1] = TURBO[i+1];
-                if (t >= t0 && t <= t1){
-                const u = (t - t0) / (t1 - t0 + 1e-12);
-                const a = hexToRgb(c0), b = hexToRgb(c1);
-                const r = Math.round(lerp(a.r,b.r,u));
-                const g = Math.round(lerp(a.g,b.g,u));
-                const bb = Math.round(lerp(a.b,b.b,u));
-                return `rgb(${r},${g},${bb})`;
-                }
-            }
-            return TURBO[TURBO.length-1][1];
-        }
+    function parseRgb(str) {
+      const m = /^rgb\(\s*(\d+),\s*(\d+),\s*(\d+)\s*\)$/.exec(str);
+      if (!m) return null;
+      return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+    }
+    function luminance({ r, g, b }) {
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    }
 
-        function paintAllCells(){
-            document.querySelectorAll("td.cell").forEach(td=>{
-                const rel = parseFloat(td.dataset.rel);
-                td.style.background = Number.isNaN(rel) ? "rgba(255,255,255,0.02)" : turboColor(rel);
-            });
-        }
+    // ✅ 每个单元格根据 (metric, x) 选择红/绿渐变，并自动黑/白字
+    function paintAllCells(){
+      document.querySelectorAll("td.cell").forEach(td=>{
+        const rel = parseFloat(td.dataset.rel);
+        const metric = td.dataset.metric || "";
+        const x = td.dataset.x || "";
+        const pal = choosePalette(metric, x);
 
-        function setupLegends(){
-            document.querySelectorAll(".legend").forEach(el=>{
-                const targetH = parseFloat(el.dataset.target);
-                const bar = el.querySelector(".legend-bar");
-                const ticks = el.querySelector(".legend-ticks");
-                const stops = TURBO.map(([t,c]) => `${c} ${Math.round(t*100)}%`).join(", ");
-                bar.style.background = `linear-gradient(to top, ${stops})`;
-                bar.style.height = `${targetH}px`;
-                ticks.style.height = `${targetH}px`;
-            });
-        }
-
-        paintAllCells();
-        setupLegends();
-// ------------------------------------高度阈值↓-------------------------------------------
-        // 定义存储高度阈值的变量
-        let selectedHeightThreshold = null;
-
-        // 初始化所有高度阈值按钮的点击事件
-        function initHeightThresholdButtons() {
-            // 为每个高度阈值按钮添加点击事件
-            document.getElementById('height-btn1').addEventListener('click', function(e) {
-                e.preventDefault();
-                selectHeightThreshold(-1, 'height-btn1');
-            });
-            
-            document.getElementById('height-btn2').addEventListener('click', function(e) {
-                e.preventDefault();
-                selectHeightThreshold(0, 'height-btn2');
-            });
-            
-            document.getElementById('height-btn3').addEventListener('click', function(e) {
-                e.preventDefault();
-                selectHeightThreshold(0.325, 'height-btn3');
-            });
-            
-            document.getElementById('height-btn4').addEventListener('click', function(e) {
-                e.preventDefault();
-                selectHeightThreshold(0.625, 'height-btn4');
-            });
-        }
-        function selectHeightThreshold(value, buttonId) {
-            selectedHeightThreshold = value;
-
-            // 2. 更新按钮文本显示（可选）
-            const dropdownButton = document.querySelector('.dropdown-toggle');
-            // ✅ 先更新 UI（以及 hidden）
-            applyHeightUI(String(value));
-            
-            // 4. 关闭下拉菜单（如果使用Bootstrap）
-            const dropdownMenu = document.querySelector('.dropdown-menu');
-            if (dropdownMenu) {
-                const bsDropdown = bootstrap.Dropdown.getInstance(dropdownButton);
-                if (bsDropdown) {
-                    bsDropdown.hide();
-                }
-            }
-
-            const occ = document.getElementById('occ-threshold-hidden')?.value
-                    || document.getElementById('occ-threshold-slider')?.value
-                    || '0.60';
-
-            window.location.href =
-                `/?height=${encodeURIComponent(value)}&keyword=${encodeURIComponent(keyword_)}&occ_threshold=${encodeURIComponent(occ)}`;
+        if (Number.isNaN(rel)) {
+          td.style.background = "rgba(255,255,255,0.02)";
+          td.style.color = "rgba(255,255,255,0.75)";
+          return;
         }
 
-        // 移除所有激活状态
-        function removeAllActiveClasses() {
-            const items = document.querySelectorAll('.dropdown-item');
-            items.forEach(item => {
-                item.classList.remove('active');
-            });
+        const bg = turboColor(rel, pal);
+        td.style.background = bg;
+
+        const rgb = parseRgb(bg);
+        if (!rgb) {
+          td.style.color = "#fff";
+          return;
         }
 
-        function applyHeightUI(value) {
-            // 更新按钮文本
-            const dropdownButton = document.querySelector('.dropdown-toggle');
-            if (dropdownButton) {
-                const icon = dropdownButton.querySelector('i')?.cloneNode(true);
-                dropdownButton.innerHTML = '';
-                if (icon) dropdownButton.appendChild(icon);
-                dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
-            }
+        const L = luminance(rgb);
+        td.style.color = (L > 150) ? "#000" : "#fff";
+      });
+    }
 
-            // 高亮选中项
-            removeAllActiveClasses();
-            const map = {
-                "-1": "height-btn1",
-                "0": "height-btn2",
-                "0.325": "height-btn3",
-                "0.625": "height-btn4",
-            };
-            const key = String(value);
-            if (map[key]) document.getElementById(map[key])?.classList.add('active');
+    // ✅ 图例同时显示红/绿两条渐变
+    function setupLegends(){
+      document.querySelectorAll(".legend").forEach(el=>{
+        const targetH = parseFloat(el.dataset.target);
 
-            // 同步隐藏字段（如果你加了 height-hidden）
-            const hh = document.getElementById('height-hidden');
-            if (hh) hh.value = value;
+        const redBar = el.querySelector(".legend-bar-red");
+        const greenBar = el.querySelector(".legend-bar-green");
+        const ticks = el.querySelector(".legend-ticks");
+
+        const redStops = MONO_RED.map(([t,c]) => `${c} ${Math.round(t*100)}%`).join(", ");
+        const greenStops = MONO_GREEN.map(([t,c]) => `${c} ${Math.round(t*100)}%`).join(", ");
+
+        if (redBar) {
+          redBar.style.background = `linear-gradient(to top, ${redStops})`;
+          redBar.style.height = `${targetH}px`;
         }
+        if (greenBar) {
+          greenBar.style.background = `linear-gradient(to top, ${greenStops})`;
+          greenBar.style.height = `${targetH}px`;
+        }
+        if (ticks) {
+          ticks.style.height = `${targetH}px`;
+        }
+      });
+    }
 
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            initHeightThresholdButtons();
+    paintAllCells();
+    setupLegends();
 
-            // ✅ 优先从 URL 读 height
-            const qs = new URLSearchParams(window.location.search);
-            const hFromUrl = qs.get('height');
+    // ------------------------------------高度阈值↓-------------------------------------------
+    let selectedHeightThreshold = null;
 
-            if (hFromUrl !== null) {
-                // 统一成 number/字符串都行，只要跟 map 的 key 能对上
-                const h = Number(hFromUrl);
-                // 处理 -1,0,0.325,0.625 这种精确值：用原字符串更稳
-                applyHeightUI(hFromUrl);  // 推荐：直接用字符串
-            } else {
-                // URL 没有就用模板渲染值（作为兜底）
-                applyHeightUI("{{ height|default(0, true) }}");
-            }
-        });
-// ------------------------------------高度阈值↑-------------------------------------------
+    function initHeightThresholdButtons() {
+      document.getElementById('height-btn1').addEventListener('click', function(e) {
+        e.preventDefault();
+        selectHeightThreshold(-1, 'height-btn1');
+      });
+      document.getElementById('height-btn2').addEventListener('click', function(e) {
+        e.preventDefault();
+        selectHeightThreshold(0, 'height-btn2');
+      });
+      document.getElementById('height-btn3').addEventListener('click', function(e) {
+        e.preventDefault();
+        selectHeightThreshold(0.325, 'height-btn3');
+      });
+      document.getElementById('height-btn4').addEventListener('click', function(e) {
+        e.preventDefault();
+        selectHeightThreshold(0.625, 'height-btn4');
+      });
+    }
 
-// ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
-        document.addEventListener('DOMContentLoaded', () => {
-            const slider = document.getElementById('occ-threshold-slider');
-            const valueEl = document.getElementById('occ-threshold-midvalue');
-            const hidden = document.getElementById('occ-threshold-hidden');
+    function removeAllActiveClasses() {
+      const items = document.querySelectorAll('.dropdown-item');
+      items.forEach(item => item.classList.remove('active'));
+    }
 
-            const qs = new URLSearchParams(window.location.search);
-            const fromUrl = qs.get('occ_threshold');
+    function applyHeightUI(value) {
+      const dropdownButton = document.querySelector('.dropdown-toggle');
+      if (dropdownButton) {
+        const icon = dropdownButton.querySelector('i')?.cloneNode(true);
+        dropdownButton.innerHTML = '';
+        if (icon) dropdownButton.appendChild(icon);
+        dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
+      }
 
-            function setRangeProgress() {
-                const min = Number(slider.min);
-                const max = Number(slider.max);
-                const val = Number(slider.value);
-                const p = ((val - min) / (max - min)) * 100;
-                slider.style.setProperty('--p', `${p}%`);
-            }
+      removeAllActiveClasses();
+      const map = { "-1":"height-btn1", "0":"height-btn2", "0.325":"height-btn3", "0.625":"height-btn4" };
+      const key = String(value);
+      if (map[key]) document.getElementById(map[key])?.classList.add('active');
 
-            const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
-            slider.value = initVal;
-            valueEl.textContent = initVal;
-            hidden.value = initVal;
-            setRangeProgress();
+      const hh = document.getElementById('height-hidden');
+      if (hh) hh.value = value;
+    }
 
-            slider.addEventListener('input', () => {
-                const v = Number(slider.value).toFixed(2);
-                valueEl.textContent = v;
-                hidden.value = v;
-                setRangeProgress();
-            });
-        });
-// ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
-        // 搜索按钮点击事件
-        // document.getElementById('searchBtn').addEventListener('click', function() {
-        //     console.log('keyword', keyword_);
-        //     fetch(`/?keyword=${keyword_}`)
-        //         .catch(error => {
-        //             console.error('请求失败:', error);
-        //             alert('请求失败: ' + error.message);
-        //         });
-        // });
-    </script>
+    function selectHeightThreshold(value, buttonId) {
+      selectedHeightThreshold = value;
+      const dropdownButton = document.querySelector('.dropdown-toggle');
+      applyHeightUI(String(value));
+
+      const dropdownMenu = document.querySelector('.dropdown-menu');
+      if (dropdownMenu) {
+        const bsDropdown = bootstrap.Dropdown.getInstance(dropdownButton);
+        if (bsDropdown) bsDropdown.hide();
+      }
+
+      const occ = document.getElementById('occ-threshold-hidden')?.value
+              || document.getElementById('occ-threshold-slider')?.value
+              || '0.60';
+
+      // 注意：这里只带 keyword/height/occ_threshold。若你还想保留 models/metrics 多选，
+      // 建议不要用 window.location.href，而是直接提交 form（或把 models/metrics 也拼进 URL）。
+      window.location.href =
+        `/?height=${encodeURIComponent(value)}&keyword=${encodeURIComponent(keyword_)}&occ_threshold=${encodeURIComponent(occ)}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      initHeightThresholdButtons();
+
+      const qs = new URLSearchParams(window.location.search);
+      const hFromUrl = qs.get('height');
+
+      if (hFromUrl !== null) applyHeightUI(hFromUrl);
+      else applyHeightUI("{{ height|default(0, true) }}");
+    });
+    // ------------------------------------高度阈值↑-------------------------------------------
+
+    // ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      const slider = document.getElementById('occ-threshold-slider');
+      const valueEl = document.getElementById('occ-threshold-midvalue');
+      const hidden = document.getElementById('occ-threshold-hidden');
+
+      const qs = new URLSearchParams(window.location.search);
+      const fromUrl = qs.get('occ_threshold');
+
+      function setRangeProgress() {
+        const min = Number(slider.min);
+        const max = Number(slider.max);
+        const val = Number(slider.value);
+        const p = ((val - min) / (max - min)) * 100;
+        slider.style.setProperty('--p', `${p}%`);
+      }
+
+      const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
+      slider.value = initVal;
+      valueEl.textContent = initVal;
+      hidden.value = initVal;
+      setRangeProgress();
+
+      slider.addEventListener('input', () => {
+        const v = Number(slider.value).toFixed(2);
+        valueEl.textContent = v;
+        hidden.value = v;
+        setRangeProgress();
+      });
+    });
+    // ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
+  </script>
 </body>
 </html>
