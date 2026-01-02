@@ -29,6 +29,18 @@ def index():
     # 解析指标选择
     selected_metrics = request.args.getlist("metrics")
 
+    color_code = {
+        "🌸 occ阈值": {
+            "月份": "GREEN", "营收(万)": "GREEN", "成本(万)": "RED", "利润(万)": "GREEN", "利润率": "GREEN",
+        },
+        "🚀 项目进度跟踪": {
+            "项目名称": "GREEN", "开始日期": "GREEN", "预计完成": "GREEN", "进度": "GREEN", "状态": "RED"
+        },
+        "⭐ 员工绩效评估": {
+            "季度2": "RED", "季度3": "GREEN", "季度4": "GREEN", "年度平均": "GREEN"
+        }
+        }
+
     models_all, metrics_all, charts, settings, constants = \
         data.get_all_tables(base_line, other, keyword, selected_metrics, height, occ_threshold)
 
@@ -41,6 +53,7 @@ def index():
         charts=charts,
         settings=settings,
         constants=constants,
+        color_code=color_code,
 
         keyword=keyword if keyword else "",
         height=height if height else "-1",

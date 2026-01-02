@@ -156,21 +156,23 @@
                   <div class="legend legend-dual" data-target="{{ c.legend_target }}">
                     <div class="legend-title">列内相对</div>
 
-                    <div class="legend-bars">
-                      <div class="legend-block">
+                <div class="legend-bars">
+                    <div class="legend-block">
                         <div class="legend-subtitle">红</div>
                         <div class="legend-bar legend-bar-red"></div>
-                      </div>
-                      <div class="legend-block">
+                    </div>
+
+                    <div class="legend-block">
                         <div class="legend-subtitle">绿</div>
                         <div class="legend-bar legend-bar-green"></div>
-                        <div class="legend-ticks">
-                          <div class="tick">高</div>
-                          <div class="tick">中</div>
-                          <div class="tick">低</div>
-                        </div>
-                      </div>
                     </div>
+
+                    <div class="legend-ticks">
+                        <div class="tick">高</div>
+                        <div class="tick">中</div>
+                        <div class="tick">低</div>
+                    </div>
+                </div>
 
                   </div>
                 </div>
@@ -219,23 +221,8 @@
       [1.00, "#700000"]
     ];
     // ------------------------------------单色红↑-------------------------------------------
-    // const COLOR_RULES = {{ color_code | tojson | safe }};
-
     // ✅ 这里“硬编码”：每个指标(metric)的每个子指标列(x)用红还是绿
-    // 你只需要按你的真实 metric / submetric 名称补全这里即可。
-    // 未命中映射的列会走 defaultPalette（下面默认红）。
-    const COLOR_RULES = {
-    "🌸 occ阈值": {
-        "月份": "GREEN", "营收(万)": "GREEN", "成本(万)": "RED", "利润(万)": "GREEN", "利润率": "GREEN",
-    },
-    "🚀 项目进度跟踪": {
-        "项目名称": "GREEN", "开始日期": "GREEN", "预计完成": "GREEN", "进度": "GREEN", "状态": "RED"
-    },
-    "⭐ 员工绩效评估": {
-        "季度1": "GREEN", "季度2": "RED", "季度3": "GREEN", "季度4": "GREEN", "年度平均": "GREEN"
-    }
-    };
-
+    const COLOR_RULES = {{ color_code | tojson | safe }};
     const defaultPalette = "RED"; // 没配置就默认红
     let keyword_ = "{{ keyword }}";
 
@@ -317,7 +304,9 @@
     // ✅ 图例同时显示红/绿两条渐变
     function setupLegends(){
       document.querySelectorAll(".legend").forEach(el=>{
-        const targetH = parseFloat(el.dataset.target);
+        const LEGEND_HEIGHT_SCALE = 0.75;  // 0.7 ~ 1.0 都可以试
+        const targetH = parseFloat(el.dataset.target) * LEGEND_HEIGHT_SCALE;
+
 
         const redBar = el.querySelector(".legend-bar-red");
         const greenBar = el.querySelector(".legend-bar-green");
@@ -325,6 +314,8 @@
 
         const redStops = MONO_RED.map(([t,c]) => `${c} ${Math.round(t*100)}%`).join(", ");
         const greenStops = MONO_GREEN.map(([t,c]) => `${c} ${Math.round(t*100)}%`).join(", ");
+
+
 
         if (redBar) {
           redBar.style.background = `linear-gradient(to top, ${redStops})`;

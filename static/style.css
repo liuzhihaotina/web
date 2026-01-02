@@ -166,7 +166,15 @@ select { padding: 10px; }
 }
 
 .cbar-pane { flex: 0 0 auto; padding-left: 8px; background: transparent; }
-.legend-wrap { display: flex; align-items: center; justify-content: center; height: 100%; }
+
+.legend-wrap {
+  display: flex;
+  /* align-items: flex-start;   */
+  justify-content: center;
+  height: 100%;
+  padding-top: 10px;         /* ✅整体往下移动一点（你可改 8~16） */
+}
+
 
 /* ✅ 双图例布局 */
 .legend.legend-dual{
@@ -215,6 +223,7 @@ select { padding: 10px; }
   font-size: 11px;
   color: var(--text);
   margin-left: 2px;
+  margin-top: 25px; 
 }
 
 .metric-label {
