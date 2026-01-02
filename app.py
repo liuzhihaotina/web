@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request
+from flask import Flask, render_template, request
 import data
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
 app.config['SESSION_TYPE'] = 'filesystem'
+
 
 
 @app.route('/', methods=["GET"])
@@ -15,6 +17,8 @@ def index():
     # 解析模型选择
     selected_models = request.args.getlist("models")
     if selected_models:
+        base_line = []
+        other = []
         base_line = []
         other = []
         for m in selected_models:
@@ -62,6 +66,11 @@ def index():
         # ✅让下拉/多选刷新不丢
         selected_models=selected_models,
         selected_metrics=selected_metrics,
+        occ_threshold=occ_threshold if occ_threshold else "0.60",
+
+        # ✅让下拉/多选刷新不丢
+        selected_models=selected_models,
+        selected_metrics=selected_metrics,
     )
 
 
@@ -69,7 +78,9 @@ if __name__ == '__main__':
     import logging
     logging.basicConfig(
         level=logging.DEBUG,
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[logging.StreamHandler()]
         handlers=[logging.StreamHandler()]
     )
     app.logger.setLevel(logging.DEBUG)
