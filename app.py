@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request
 import data
+from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
@@ -64,6 +65,11 @@ def index():
         selected_metrics=selected_metrics,
     )
 
+@app.route("/api/search_dirs")
+def api_search_dirs():
+    q = request.args.get("q", "").strip()
+    results = data.search_person_dirs_by_keyword(q)
+    return jsonify(results)
 
 if __name__ == '__main__':
     import logging

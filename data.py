@@ -436,6 +436,25 @@ def get_person_names(other, keyword=None):
     person_dirs = get_all_person_dirs(other, keyword)
     return [person['name'] for person in person_dirs]
 
+def search_person_dirs_by_keyword(keyword: str):
+    """
+    在 DATA_DIRS 下查找包含 keyword 的文件夹名
+    """
+    if not keyword:
+        return []
+
+    result = []
+    if not os.path.exists(DATA_DIRS):
+        return result
+
+    for name in os.listdir(DATA_DIRS):
+        full = os.path.join(DATA_DIRS, name)
+        if os.path.isdir(full) and keyword.lower() in name.lower():
+            result.append(name)
+
+    return sorted(result)
+
+
 if __name__ == '__main__':
     # 测试加载数据
     get_all_tables(base_line=None, other=None, keyword='lisi; zhangsan', 

@@ -5,13 +5,11 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Metrics Heatmaps</title>
 
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
-
 
 <body>
   <div class="page">
@@ -32,10 +30,23 @@
 
     <section class="panel">
       <form method="get" class="form">
-        <div class="row">
+        <div class="row search-wrap">
           <label>搜索</label>
-          <input type="text" name="keyword" value="{{ keyword }}" />
+
+          <div class="search-input-wrap">
+            <input type="text"
+                  id="search-input"
+                  name="keyword"
+                  autocomplete="off"
+                  value="{{ keyword }}" />
+
+            <!-- 🔽 搜索提示下拉 -->
+            <div id="search-suggest" class="search-suggest hidden">
+              <div class="suggest-item">这是提示</div>
+            </div>
+          </div>
         </div>
+
 
         <div class="grid">
           <div class="col">
@@ -70,16 +81,6 @@
                 <li><a class="dropdown-item" href="#" id="height-btn2"><i class="fas fa-arrow-right"></i> 0</a></li>
                 <li><a class="dropdown-item" href="#" id="height-btn1"><i class="fas fa-sort-amount-down"></i> -1</a></li>
               </ul>
-              <button type="button" class="btn dropdown-toggle"
-                      data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="fas fa-ruler-vertical"></i> 高度阈值 {{ height }}
-              </button>
-              <ul class="dropdown-menu">
-                <li><a class="dropdown-item" href="#" id="height-btn4"><i class="fas fa-sort-amount-up"></i> 0.625</a></li>
-                <li><a class="dropdown-item" href="#" id="height-btn3"><i class="fas fa-arrow-up"></i> 0.325</a></li>
-                <li><a class="dropdown-item" href="#" id="height-btn2"><i class="fas fa-arrow-right"></i> 0</a></li>
-                <li><a class="dropdown-item" href="#" id="height-btn1"><i class="fas fa-sort-amount-down"></i> -1</a></li>
-              </ul>
             </div>
             <input type="hidden" name="height" id="height-hidden" value="{{ height|default(-1, true) }}">
 
@@ -88,29 +89,16 @@
               <input type="range" class="form-range" id="occ-threshold-slider"
                      min="0.5" max="0.7" step="0.02"
                      value="{{ occ_threshold|default(0.60, true) }}">
-              <input type="range" class="form-range" id="occ-threshold-slider"
-                     min="0.5" max="0.7" step="0.02"
-                     value="{{ occ_threshold|default(0.60, true) }}">
 
               <div id="occ-threshold-midvalue">
                 {{ occ_threshold|default(0.60, true) }}
               </div>
-              <div id="occ-threshold-midvalue">
-                {{ occ_threshold|default(0.60, true) }}
-              </div>
 
-              <div class="range-labels">
-                <span>0.5</span>
-                <span>0.7</span>
-              </div>
               <div class="range-labels">
                 <span>0.5</span>
                 <span>0.7</span>
               </div>
             </div>
-
-            <input type="hidden" name="occ_threshold" id="occ-threshold-hidden"
-                   value="{{ occ_threshold|default(0.60, true) }}">
 
             <input type="hidden" name="occ_threshold" id="occ-threshold-hidden"
                    value="{{ occ_threshold|default(0.60, true) }}">
@@ -156,8 +144,6 @@
                                 data-rel="{{ rel }}"
                                 data-metric="{{ c.metric }}"
                                 data-x="{{ c.x[j] }}"
-                                data-metric="{{ c.metric }}"
-                                data-x="{{ c.x[j] }}"
                                 title="Model={{ c.y[i] }}&#10;Submetric={{ c.x[j] }}&#10;Raw={{ raw }}&#10;ColRange=[{{ cmin }}, {{ cmax }}]&#10;Rel(0~1)={{ rel }}">
                               <span class="cell-text">{% if c.text %}{{ c.text[i][j] }}{% endif %}</span>
                             </td>
@@ -178,10 +164,8 @@
               </div>
 
               <!-- ✅ 双图例：红 + 绿 -->
-              <!-- ✅ 双图例：红 + 绿 -->
               <div class="cbar-pane" style="width: {{ constants.CBAR_WIDTH }}px;">
                 <div class="legend-wrap" style="height: {{ c.height }}px;">
-                  <div class="legend legend-dual" data-target="{{ c.legend_target }}">
                   <div class="legend legend-dual" data-target="{{ c.legend_target }}">
                     <div class="legend-title">列内相对</div>
 
@@ -214,9 +198,6 @@
       {% endfor %}
     </main>
   </div>
-
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
@@ -274,33 +255,7 @@
       return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
     }
     function lerp(a,b,t){ return a + (b-a)*t; }
-    function hexToRgb(h) {
-      const x = h.replace("#","").trim();
-      const n = parseInt(x, 16);
-      return { r:(n>>16)&255, g:(n>>8)&255, b:n&255 };
-    }
-    function lerp(a,b,t){ return a + (b-a)*t; }
 
-    // ✅ 颜色函数支持传入 palette（红/绿）
-    function turboColor(t, paletteName) {
-      const TURBO = paletteStops(paletteName);
-
-      if (t == null || Number.isNaN(t)) return "rgba(0,0,0,0)";
-      t = Math.max(0, Math.min(1, t));
-      for (let i=0; i<TURBO.length-1; i++){
-        const [t0,c0] = TURBO[i];
-        const [t1,c1] = TURBO[i+1];
-        if (t >= t0 && t <= t1){
-          const u = (t - t0) / (t1 - t0 + 1e-12);
-          const a = hexToRgb(c0), b = hexToRgb(c1);
-          const r = Math.round(lerp(a.r,b.r,u));
-          const g = Math.round(lerp(a.g,b.g,u));
-          const bb = Math.round(lerp(a.b,b.b,u));
-          return `rgb(${r},${g},${bb})`;
-        }
-      }
-      return TURBO[TURBO.length-1][1];
-    }
     // ✅ 颜色函数支持传入 palette（红/绿）
     function turboColor(t, paletteName) {
       const TURBO = paletteStops(paletteName);
@@ -394,35 +349,7 @@
 
     // ------------------------------------高度阈值↓-------------------------------------------
     let selectedHeightThreshold = null;
-    paintAllCells();
-    setupLegends();
 
-    // ------------------------------------高度阈值↓-------------------------------------------
-    let selectedHeightThreshold = null;
-
-    function initHeightThresholdButtons() {
-      document.getElementById('height-btn1').addEventListener('click', function(e) {
-        e.preventDefault();
-        selectHeightThreshold(-1, 'height-btn1');
-      });
-      document.getElementById('height-btn2').addEventListener('click', function(e) {
-        e.preventDefault();
-        selectHeightThreshold(0, 'height-btn2');
-      });
-      document.getElementById('height-btn3').addEventListener('click', function(e) {
-        e.preventDefault();
-        selectHeightThreshold(0.325, 'height-btn3');
-      });
-      document.getElementById('height-btn4').addEventListener('click', function(e) {
-        e.preventDefault();
-        selectHeightThreshold(0.625, 'height-btn4');
-      });
-    }
-
-    function removeAllActiveClasses() {
-      const items = document.querySelectorAll('.dropdown-item');
-      items.forEach(item => item.classList.remove('active'));
-    }
     function initHeightThresholdButtons() {
       document.getElementById('height-btn1').addEventListener('click', function(e) {
         e.preventDefault();
@@ -455,27 +382,12 @@
         if (icon) dropdownButton.appendChild(icon);
         dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
       }
-    function applyHeightUI(value) {
-      const dropdownButton = document.querySelector('.dropdown-toggle');
-      if (dropdownButton) {
-        const icon = dropdownButton.querySelector('i')?.cloneNode(true);
-        dropdownButton.innerHTML = '';
-        if (icon) dropdownButton.appendChild(icon);
-        dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
-      }
 
       removeAllActiveClasses();
       const map = { "-1":"height-btn1", "0":"height-btn2", "0.325":"height-btn3", "0.625":"height-btn4" };
       const key = String(value);
       if (map[key]) document.getElementById(map[key])?.classList.add('active');
-      removeAllActiveClasses();
-      const map = { "-1":"height-btn1", "0":"height-btn2", "0.325":"height-btn3", "0.625":"height-btn4" };
-      const key = String(value);
-      if (map[key]) document.getElementById(map[key])?.classList.add('active');
 
-      const hh = document.getElementById('height-hidden');
-      if (hh) hh.value = value;
-    }
       const hh = document.getElementById('height-hidden');
       if (hh) hh.value = value;
     }
@@ -503,104 +415,117 @@
 
     document.addEventListener('DOMContentLoaded', function() {
       initHeightThresholdButtons();
-    function selectHeightThreshold(value, buttonId) {
-      selectedHeightThreshold = value;
-      const dropdownButton = document.querySelector('.dropdown-toggle');
-      applyHeightUI(String(value));
 
-      const dropdownMenu = document.querySelector('.dropdown-menu');
-      if (dropdownMenu) {
-        const bsDropdown = bootstrap.Dropdown.getInstance(dropdownButton);
-        if (bsDropdown) bsDropdown.hide();
+      const qs = new URLSearchParams(window.location.search);
+      const hFromUrl = qs.get('height');
+
+      if (hFromUrl !== null) applyHeightUI(hFromUrl);
+      else applyHeightUI("{{ height|default(0, true) }}");
+    });
+    // ------------------------------------高度阈值↑-------------------------------------------
+
+    // ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      const slider = document.getElementById('occ-threshold-slider');
+      const valueEl = document.getElementById('occ-threshold-midvalue');
+      const hidden = document.getElementById('occ-threshold-hidden');
+
+      const qs = new URLSearchParams(window.location.search);
+      const fromUrl = qs.get('occ_threshold');
+
+      function setRangeProgress() {
+        const min = Number(slider.min);
+        const max = Number(slider.max);
+        const val = Number(slider.value);
+        const p = ((val - min) / (max - min)) * 100;
+        slider.style.setProperty('--p', `${p}%`);
       }
 
-      const occ = document.getElementById('occ-threshold-hidden')?.value
-              || document.getElementById('occ-threshold-slider')?.value
-              || '0.60';
+      const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
+      slider.value = initVal;
+      valueEl.textContent = initVal;
+      hidden.value = initVal;
+      setRangeProgress();
 
-      // 注意：这里只带 keyword/height/occ_threshold。若你还想保留 models/metrics 多选，
-      // 建议不要用 window.location.href，而是直接提交 form（或把 models/metrics 也拼进 URL）。
-      window.location.href =
-        `/?height=${encodeURIComponent(value)}&keyword=${encodeURIComponent(keyword_)}&occ_threshold=${encodeURIComponent(occ)}`;
+      slider.addEventListener('input', () => {
+        const v = Number(slider.value).toFixed(2);
+        valueEl.textContent = v;
+        hidden.value = v;
+        setRangeProgress();
+      });
+    });
+    // ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
+    // ------------------------------------搜索提示下拉↓-------------------------------------------
+    const searchInput = document.getElementById("search-input");
+    const suggestBox = document.getElementById("search-suggest");
+
+    function getCurrentSegment(value) {
+      const parts = value.split(";");
+      return parts[parts.length - 1].trim();
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      initHeightThresholdButtons();
+    function replaceCurrentSegment(value, replacement) {
+      const parts = value.split(";");
+      parts[parts.length - 1] = " " + replacement;
+      return parts.join(";").replace(/^ /, "");
+    }
 
-      const qs = new URLSearchParams(window.location.search);
-      const hFromUrl = qs.get('height');
-      const qs = new URLSearchParams(window.location.search);
-      const hFromUrl = qs.get('height');
+    async function fetchSuggestions(keyword) {
+      const resp = await fetch(`/api/search_dirs?q=${encodeURIComponent(keyword)}`);
+      return await resp.json();
+    }
 
-      if (hFromUrl !== null) applyHeightUI(hFromUrl);
-      else applyHeightUI("{{ height|default(0, true) }}");
-    });
-    // ------------------------------------高度阈值↑-------------------------------------------
-      if (hFromUrl !== null) applyHeightUI(hFromUrl);
-      else applyHeightUI("{{ height|default(0, true) }}");
-    });
-    // ------------------------------------高度阈值↑-------------------------------------------
-
-    // ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      const slider = document.getElementById('occ-threshold-slider');
-      const valueEl = document.getElementById('occ-threshold-midvalue');
-      const hidden = document.getElementById('occ-threshold-hidden');
-    // ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      const slider = document.getElementById('occ-threshold-slider');
-      const valueEl = document.getElementById('occ-threshold-midvalue');
-      const hidden = document.getElementById('occ-threshold-hidden');
-
-      const qs = new URLSearchParams(window.location.search);
-      const fromUrl = qs.get('occ_threshold');
-      const qs = new URLSearchParams(window.location.search);
-      const fromUrl = qs.get('occ_threshold');
-
-      function setRangeProgress() {
-        const min = Number(slider.min);
-        const max = Number(slider.max);
-        const val = Number(slider.value);
-        const p = ((val - min) / (max - min)) * 100;
-        slider.style.setProperty('--p', `${p}%`);
-      }
-      function setRangeProgress() {
-        const min = Number(slider.min);
-        const max = Number(slider.max);
-        const val = Number(slider.value);
-        const p = ((val - min) / (max - min)) * 100;
-        slider.style.setProperty('--p', `${p}%`);
+    function renderSuggestions(list, rawValue) {
+      suggestBox.innerHTML = "";
+      if (list.length === 0) {
+        suggestBox.classList.add("hidden");
+        return;
       }
 
-      const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
-      slider.value = initVal;
-      valueEl.textContent = initVal;
-      hidden.value = initVal;
-      setRangeProgress();
-      const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
-      slider.value = initVal;
-      valueEl.textContent = initVal;
-      hidden.value = initVal;
-      setRangeProgress();
+      list.forEach(name => {
+        const div = document.createElement("div");
+        div.className = "suggest-item";
+        div.textContent = name;
 
-      slider.addEventListener('input', () => {
-        const v = Number(slider.value).toFixed(2);
-        valueEl.textContent = v;
-        hidden.value = v;
-        setRangeProgress();
+        div.addEventListener("mousedown", () => {
+          const newValue = replaceCurrentSegment(rawValue, name);
+          searchInput.value = newValue;
+          suggestBox.classList.add("hidden");
+          searchInput.focus();
+        });
+
+        suggestBox.appendChild(div);
       });
-    });
-    // ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
-  </script>
-      slider.addEventListener('input', () => {
-        const v = Number(slider.value).toFixed(2);
-        valueEl.textContent = v;
-        hidden.value = v;
-        setRangeProgress();
+
+      suggestBox.classList.remove("hidden");
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", async () => {
+        const value = searchInput.value;
+        const segment = getCurrentSegment(value);
+
+        if (!segment) {
+          suggestBox.classList.add("hidden");
+          return;
+        }
+
+        const suggestions = await fetchSuggestions(segment);
+        renderSuggestions(suggestions, value);
       });
-    });
-    // ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
+
+      searchInput.addEventListener("blur", () => {
+        setTimeout(() => suggestBox.classList.add("hidden"), 150);
+      });
+
+      searchInput.addEventListener("focus", () => {
+        if (getCurrentSegment(searchInput.value)) {
+          searchInput.dispatchEvent(new Event("input"));
+        }
+      });
+    }
+
+    
   </script>
 </body>
 </html>
-

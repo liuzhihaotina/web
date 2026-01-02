@@ -327,3 +327,37 @@ select { padding: 10px; }
   opacity: 0.9;
   pointer-events: none;
 }
+/* ================= 搜索提示 ================= */
+
+.search-input-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.search-suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 4px;
+  z-index: 20;
+  overflow: hidden;
+}
+
+.search-suggest.hidden {
+  display: none;
+}
+
+.suggest-item {
+  padding: 8px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.suggest-item:hover {
+  background: rgba(255,255,255,0.08);
+}
