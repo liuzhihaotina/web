@@ -13,7 +13,7 @@
 
 <body>
   <div class="page">
-    <header class="header">
+    <header class="header d-flex justify-content-between align-items-start">
       <div>
         <h1>📊 指标热力图总览（按指标纵向排列）</h1>
         <div class="sub">
@@ -22,7 +22,13 @@
           ✅每列列宽自适应；仅中间横向滚动；左侧固定；右侧图例固定；列内归一化上色
         </div>
       </div>
+
+      <!-- 🌗 主题切换按钮 -->
+      <button id="theme-toggle" class="btn" style="width:auto">
+        🌙 夜间模式
+      </button>
     </header>
+
 
     {% if error %}
       <div class="alert">{{ error }}</div>
@@ -46,7 +52,6 @@
             </div>
           </div>
         </div>
-
 
         <div class="grid">
           <div class="col">
@@ -393,25 +398,46 @@
     }
 
     function selectHeightThreshold(value, buttonId) {
+      // 1️⃣ 记录当前选择（你原本就有）
       selectedHeightThreshold = value;
+
+      // 2️⃣ 更新 UI（你原本就有）
       const dropdownButton = document.querySelector('.dropdown-toggle');
       applyHeightUI(String(value));
 
+      // 3️⃣ 关闭下拉菜单（你原本就有）
       const dropdownMenu = document.querySelector('.dropdown-menu');
       if (dropdownMenu) {
         const bsDropdown = bootstrap.Dropdown.getInstance(dropdownButton);
         if (bsDropdown) bsDropdown.hide();
       }
 
-      const occ = document.getElementById('occ-threshold-hidden')?.value
-              || document.getElementById('occ-threshold-slider')?.value
-              || '0.60';
+      // 4️⃣ 更新隐藏字段（关键点）
+      const heightHidden = document.getElementById('height-hidden');
+      if (heightHidden) {
+        heightHidden.value = value;
+      }
 
-      // 注意：这里只带 keyword/height/occ_threshold。若你还想保留 models/metrics 多选，
-      // 建议不要用 window.location.href，而是直接提交 form（或把 models/metrics 也拼进 URL）。
-      window.location.href =
-        `/?height=${encodeURIComponent(value)}&keyword=${encodeURIComponent(keyword_)}&occ_threshold=${encodeURIComponent(occ)}`;
+      // 5️⃣ 直接提交 form（核心改动）
+      const form = document.querySelector('form.form');
+      if (form) {
+        form.submit();
+      }
     }
+
+
+function selectHeightThreshold(value) {
+  // 1️⃣ 更新隐藏字段
+  document.getElementById('height-hidden').value = value;
+
+  // 2️⃣ 同步 UI（你原来的逻辑保留）
+  applyHeightUI(String(value));
+
+  // 3️⃣ 提交整个表单（GET）
+  const form = document.querySelector("form.form");
+  form.submit();
+}
+
 
     document.addEventListener('DOMContentLoaded', function() {
       initHeightThresholdButtons();
@@ -420,7 +446,7 @@
       const hFromUrl = qs.get('height');
 
       if (hFromUrl !== null) applyHeightUI(hFromUrl);
-      else applyHeightUI("{{ height|default(0, true) }}");
+      else applyHeightUI("{{ height|default(-1, true) }}");
     });
     // ------------------------------------高度阈值↑-------------------------------------------
 
@@ -441,20 +467,31 @@
         slider.style.setProperty('--p', `${p}%`);
       }
 
+      // 1️⃣ 初始化
       const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
       slider.value = initVal;
       valueEl.textContent = initVal;
       hidden.value = initVal;
       setRangeProgress();
 
+      // 2️⃣ 拖动中：只更新 UI，不提交
       slider.addEventListener('input', () => {
         const v = Number(slider.value).toFixed(2);
         valueEl.textContent = v;
         hidden.value = v;
         setRangeProgress();
       });
+
+      // 3️⃣ 松手后：提交 form（核心）
+      slider.addEventListener('change', () => {
+        const form = document.querySelector('form.form');
+        if (form) {
+          form.submit();
+        }
+      });
     });
     // ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
+
     // ------------------------------------搜索提示下拉↓-------------------------------------------
     const searchInput = document.getElementById("search-input");
     const suggestBox = document.getElementById("search-suggest");
@@ -524,7 +561,26 @@
         }
       });
     }
+    
+    /* ================= 白天 / 夜间模式 ================= */
+    const THEME_KEY = "theme-mode";
+    const toggleBtn = document.getElementById("theme-toggle");
+    const html = document.documentElement;
 
+    function applyTheme(theme) {
+      html.setAttribute("data-theme", theme);
+      toggleBtn.textContent = theme === "light" ? "🌙 夜间模式" : "☀️ 白天模式";
+    }
+
+    const savedTheme = localStorage.getItem(THEME_KEY) || "dark";
+    applyTheme(savedTheme);
+
+    toggleBtn.addEventListener("click", () => {
+      const current = html.getAttribute("data-theme") || "dark";
+      const next = current === "dark" ? "light" : "dark";
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
     
   </script>
 </body>
