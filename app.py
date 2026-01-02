@@ -1,17 +1,11 @@
-from typing import List
-from flask import Flask, render_template, request, jsonify, session, send_file, redirect, url_for
+from flask import Flask, render_template, request
 import data
-import json
-import os
-import io
-import pandas as pd
-from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-here'
 app.config['SESSION_TYPE'] = 'filesystem'
 
-# -----------------------------------------------------------------------------------------------
+
 @app.route('/', methods=["GET"])
 def index():
     keyword = request.args.get('keyword', None)
@@ -21,8 +15,8 @@ def index():
     # 解析模型选择
     selected_models = request.args.getlist("models")
     if selected_models:
-        base_line=[]
-        other=[]
+        base_line = []
+        other = []
         for m in selected_models:
             if '⭐' in m:
                 base_line.append(m.replace('⭐', '').strip())
@@ -38,7 +32,6 @@ def index():
     models_all, metrics_all, charts, settings, constants = \
         data.get_all_tables(base_line, other, keyword, selected_metrics, height, occ_threshold)
 
-
     return render_template(
         "index.html",
         error=None,
@@ -48,25 +41,23 @@ def index():
         charts=charts,
         settings=settings,
         constants=constants,
+
         keyword=keyword if keyword else "",
         height=height if height else "-1",
+        occ_threshold=occ_threshold if occ_threshold else "0.60",
+
+        # ✅让下拉/多选刷新不丢
+        selected_models=selected_models,
+        selected_metrics=selected_metrics,
     )
 
 
 if __name__ == '__main__':
-    # 设置日志级别
     import logging
     logging.basicConfig(
-        level=logging.DEBUG,  # DEBUG级别会显示所有信息
+        level=logging.DEBUG,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            # logging.FileHandler('app.log'),  # 输出到文件
-            logging.StreamHandler()           # 输出到控制台
-        ]
+        handlers=[logging.StreamHandler()]
     )
-
-    # with app.test_request_context("/?models=⭐ lisi83"):
-    #     index()
-
     app.logger.setLevel(logging.DEBUG)
     app.run(debug=True, port=5001)
