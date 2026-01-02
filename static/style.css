@@ -236,3 +236,75 @@ select { padding: 10px; }
 .dropdown-item:hover {
     background-color: #f1f1f1;
 }
+
+/* occ滑动条 */
+.range-wrap { width: 100%; }
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+/* 让 range 背景显示进度色条：不同浏览器需要不同选择器 */
+#occ-threshold-slider {
+  --p: 50%; /* progress percent */
+  height: 6px;
+  border-radius: 999px;
+  background: linear-gradient(to right, #0d6efd var(--p), #d7d7d7 var(--p));
+  outline: none;
+}
+
+/* WebKit (Chrome/Safari) */
+#occ-threshold-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent; /* 让 input 自己的 background 生效 */
+}
+#occ-threshold-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0d6efd;
+  border: 2px solid #fff;
+  margin-top: -5px; /* 让 thumb 垂直居中 */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* Firefox */
+#occ-threshold-slider::-moz-range-track {
+  height: 6px;
+  border-radius: 999px;
+  background: transparent;
+}
+#occ-threshold-slider::-moz-range-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: #0d6efd;
+}
+#occ-threshold-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #0d6efd;
+  border: 2px solid #fff;
+}
+
+.range-wrap {
+  position: relative;
+  width: 100%;
+  padding-bottom: 24px; /* 给中间数值留空间 */
+}
+
+#occ-threshold-midvalue{
+  position: absolute;
+  left: 50%;
+  bottom: 8px;          /* 贴近滑条下方；想更低就调小/调大 */
+  transform: translateX(-50%);
+  font-size: 12px;
+  opacity: 0.9;
+  pointer-events: none; /* 不挡住拖动 */
+}
