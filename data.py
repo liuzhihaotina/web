@@ -3,7 +3,7 @@ import math
 import os
 import glob
 from datetime import datetime
-from typing import List
+from typing import List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -34,21 +34,25 @@ YAXIS_WIDTH_DEFAULT = 170
 CBAR_WIDTH = 88
 MIN_LEGEND_PX = 220
 
-def get_important_persons():
+def get_important_persons(base_line):
     """获取标兵人员列表"""
     important_persons = []
     
     if os.path.exists(IMPORTANT_DIR):
-        for item in os.listdir(IMPORTANT_DIR):
-            item_path = os.path.join(IMPORTANT_DIR, item)
-            if os.path.isdir(item_path) and not item.startswith('.'):
-                important_persons.append(item)
+        if base_line is None:
+            for item in os.listdir(IMPORTANT_DIR):
+                item_path = os.path.join(IMPORTANT_DIR, item)
+                if os.path.isdir(item_path) and not item.startswith('.'):
+                    important_persons.append(item)
+        else:
+            important_persons = base_line
     
     return sorted(important_persons)
 
-def load_important_person_data(person_name, table_config):
+def load_important_person_data(person_name, table_config, height):
     """加载标兵个人数据"""
     data_key = table_config['data_key']
+    title = table_config['title']
     
     # 首先尝试从标兵目录加载
     important_file = os.path.join(IMPORTANT_DIR, person_name, f"{data_key}.json")
@@ -57,9 +61,11 @@ def load_important_person_data(person_name, table_config):
         try:
             with open(important_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
                 if data_key in data:
                     data_values = data[data_key]
+                    if title in {'🚀 项目进度跟踪'}:
+                        height = '-1' if height is None else height
+                        data_values = data_values[height]
                     if not isinstance(data_values, list):
                         data_values = [data_values]
                     row_data = [f"⭐ {person_name}"] + data_values
@@ -72,46 +78,28 @@ def load_important_person_data(person_name, table_config):
         except Exception as e:
             print(f"加载标兵 {person_name} 的 {data_key} 数据时出错: {e}")
     
-    # 如果标兵目录没有，尝试从普通目录加载
-    normal_file = os.path.join(DATA_DIRS, person_name, f"{data_key}.json")
-    
-    if os.path.exists(normal_file):
-        try:
-            with open(normal_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                
-                if data_key in data:
-                    data_values = data[data_key]
-                    if not isinstance(data_values, list):
-                        data_values = [data_values]
-                    
-                    # 添加标兵标记
-                    row_data = [f"⭐ {person_name}"] + data_values
-                    return row_data
-        except Exception as e:
-            print(f"加载标兵 {person_name} 的普通数据时出错: {e}")
-    
-    # 都没有则返回NA
-    return create_na_row(f"⭐ {person_name}", table_config)
+    # 没有则返回空列表
+    return []
 
-def build_table_data_with_important(table_config,keyword=None):
-    """构建包含标兵数据的表格数据"""
+def build_table_data(table_config, base_line, other, keyword, height):
     # 加载表头
     headers = load_headers(table_config['header_file'])
     
-    # 获取标兵人员
-    important_persons = get_important_persons()
+    # 获取基线
+    important_persons = get_important_persons(base_line)
     
-    # 获取普通人员（排除标兵）
-    all_persons = get_person_names(keyword)
+    # 获取其他
+    all_persons = get_person_names(other, keyword)
     normal_persons = [p for p in all_persons if p not in important_persons]
     
     # 首先添加标兵数据
     important_rows = []
     for person in important_persons:
-        row_data = load_important_person_data(person, table_config)
+        row_data = load_important_person_data(person, table_config, height)
+        if len(row_data) == 0:
+            continue
         # 确保数据长度与表头匹配
-        if len(row_data) < len(headers) and 'A' not in row_data:
+        if len(row_data) < len(headers):
             row_data = row_data + ["NA"] * (len(headers) - len(row_data))
         elif len(row_data) > len(headers):
             row_data = row_data[:len(headers)]
@@ -121,7 +109,9 @@ def build_table_data_with_important(table_config,keyword=None):
     normal_rows = []
     for person in normal_persons:
         person_dir = {'name': person, 'path': os.path.join(DATA_DIRS, person)}
-        row_data = load_person_data(person_dir, table_config)
+        row_data = load_person_data(person_dir, table_config, height)
+        if len(row_data) == 0:
+            continue
         # 确保数据长度与表头匹配
         if len(row_data) < len(headers):
             row_data = row_data + ["NA"] * (len(headers) - len(row_data))
@@ -146,30 +136,43 @@ def get_tables_cfg():
     config = load_config()
     return config
 
-def get_all_tables(keyword=None):
-    """获取所有表格的数据（包含标兵）"""
+def get_all_tables(base_line, other, keyword, selected_metrics, height):
+    """获取所有表格的数据"""
     config = get_tables_cfg()
     tables = []
     
     for table_config in config.get('tables', []):
-        table_data = build_table_data_with_important(table_config, keyword)
+        if selected_metrics and table_config['title'] not in selected_metrics:
+            continue
+        table_data = build_table_data(table_config, base_line, other, keyword, height)
         tables.append(table_data)
+        
     models_all = get_models_all(tables)
     metrics_all, headers_all, metric_data_dict = get_metrics_headers_all(tables)
-    chart = get_charts(models_all, metrics_all, headers_all, metric_data_dict)
-    return tables
+    charts, settings, constants = \
+    get_charts(models_all, metrics_all, headers_all, metric_data_dict)
+    return models_all, metrics_all, charts, settings, constants
 
 def build_metric_dataframe(models_all, header, rows):
-    df = pd.DataFrame(index=models_all, columns=header, dtype=float)
-    for model in models_all:
+    # 只包含有数据的模型
+    valid_models = [model for model in models_all if rows.get(model)]
+    
+    if not valid_models:
+        return pd.DataFrame(columns=header)  # 返回空DataFrame
+    
+    df = pd.DataFrame(index=valid_models, columns=header, dtype=float)
+    for model in valid_models:
         row_data = rows.get(model, {})
+        if not row_data:  # 双重检查
+            continue
         for sm, row in zip(header, row_data):
             df.loc[model, sm] = row
+    
     return df
 
 def footer_height_px(x_labels: List[str]) -> int:
-
-    max_len = max(len(str(x)) for x in x_labels)
+    """计算底部斜排文字所需高度"""
+    max_len = max(len(x) for x in x_labels)
     text_w = max_len * CHAR_PX
     theta = math.radians(FOOTER_ROT_DEG)
 
@@ -177,10 +180,75 @@ def footer_height_px(x_labels: List[str]) -> int:
     h = int(math.sin(theta) * text_w + (FOOTER_FONT_PX * 1.6) + FOOTER_PAD_TOP + FOOTER_PAD_BOTTOM)
     return max(FOOTER_MIN_H, min(FOOTER_MAX_H, h))
 
+def compute_range_1d(v: np.ndarray, robust: bool = True) -> Tuple[Optional[float], Optional[float]]:
+    v = v[~np.isnan(v)]
+    if v.size == 0:
+        return None, None
+    if robust and v.size >= 10:
+        return float(np.quantile(v, 0.02)), float(np.quantile(v, 0.98))
+    return float(np.min(v)), float(np.max(v))
+
+def normalize_by_column(values: np.ndarray, robust: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    if values.ndim != 2:
+        raise ValueError("values must be 2D")
+
+    n_rows, n_cols = values.shape
+    col_min = np.full((n_cols,), np.nan, dtype=float)
+    col_max = np.full((n_cols,), np.nan, dtype=float)
+
+    for j in range(n_cols):
+        mn, mx = compute_range_1d(values[:, j].astype(float), robust=robust)
+        col_min[j] = np.nan if mn is None else float(mn)
+        col_max[j] = np.nan if mx is None else float(mx)
+
+    z_norm = np.full_like(values.astype(float), np.nan, dtype=float)
+    for j in range(n_cols):
+        mn, mx = col_min[j], col_max[j]
+        if np.isnan(mn) or np.isnan(mx):
+            continue
+        denom = (mx - mn)
+        col = values[:, j].astype(float)
+        if abs(denom) < 1e-12:
+            z_norm[:, j] = np.where(np.isnan(col), np.nan, 0.5)
+        else:
+            z_norm[:, j] = (col - mn) / denom
+
+    return np.clip(z_norm, 0.0, 1.0), col_min, col_max
+
+def compute_col_widths(x_labels: List[str], text: Optional[List[List[str]]]) -> List[int]:
+    n_cols = len(x_labels)
+    if not text:
+        out = []
+        for j in range(n_cols):
+            max_len = len(str(x_labels[j]))
+            w = COL_PAD_PX + max_len * CHAR_PX
+            out.append(int(max(MIN_COL_W_PX, min(MAX_COL_W_PX, w))))
+        return out
+
+    out = []
+    for j in range(n_cols):
+        max_len = len(str(x_labels[j]))
+        for i in range(len(text)):
+            s = text[i][j] if j < len(text[i]) else ""
+            if s:
+                max_len = max(max_len, len(str(s)))
+        w = COL_PAD_PX + max_len * CHAR_PX
+        out.append(int(max(MIN_COL_W_PX, min(MAX_COL_W_PX, w))))
+    return out
+
+def estimate_yaxis_width_px(labels: List[str]) -> int:
+    if not labels:
+        return YAXIS_WIDTH_DEFAULT
+    max_chars = max(len(x) for x in labels)
+    w = 40 + int(max_chars * 9)
+    return max(170, min(320, w))
+
 def get_charts(models_all, metrics_all, headers_all, metric_data_dict):
     charts = []
     global_footer_h = FOOTER_MIN_H
-    
+    robust = True
+    show_text = True
+
     # 第一遍：算出每个图自己的 footer_h，并取最大作为全局 footer_h
     tmp = []
     for header, metric in zip(headers_all, metrics_all):
@@ -221,9 +289,9 @@ def get_charts(models_all, metrics_all, headers_all, metric_data_dict):
 
         text = None
         if show_text:
-            text = [[fmt_cell(float(v), precision) for v in row] for row in raw]
+            text = [[str(v)+'ww' for v in row] for row in raw]
 
-        col_widths = compute_col_widths([str(x) for x in x_labels], text)
+        col_widths = compute_col_widths(x_labels, text)
         min_matrix_width = int(sum(col_widths))
 
         n_rows = len(y_labels)
@@ -231,7 +299,7 @@ def get_charts(models_all, metrics_all, headers_all, metric_data_dict):
         height = int(n_rows * CELL_H_PX + footer_h)
 
         legend_target = min(height, max(height, MIN_LEGEND_PX))
-        yaxis_width = estimate_yaxis_width_px([str(x) for x in y_labels])
+        yaxis_width = estimate_yaxis_width_px(y_labels)
 
         customdata = []
         for i in range(raw.shape[0]):
@@ -261,6 +329,13 @@ def get_charts(models_all, metrics_all, headers_all, metric_data_dict):
                 "legend_target": int(legend_target),
             }
         )
+    settings = dict(show_text=show_text, precision=4, robust=robust)
+    constants = dict(
+        CELL_H_PX=CELL_H_PX,
+        CBAR_WIDTH=CBAR_WIDTH,
+        MIN_LEGEND_PX=MIN_LEGEND_PX,
+    )
+    return charts, settings, constants
 
 def get_metrics_headers_all(tables):
     """获取所有表格的指标"""
@@ -283,30 +358,7 @@ def get_models_all(tables):
         for row in table['rows']:
             models_all.add(row[0]) 
     return list(models_all)
-# ------------------------------========================================
-def get_important_person_stats():
-    """获取标兵统计信息"""
-    important_persons = get_important_persons()
-    return {
-        'count': len(important_persons),
-        'persons': important_persons,
-        'has_important': len(important_persons) > 0
-    }
-
-# 默认配置
-DEFAULT_CONFIG = {
-    "tables": [
-        {
-            "id": "performance-table",
-            "title": "⭐ 绩效评估",
-            "description": "员工季度绩效评分",
-            "header_file": "performance_headers.json",
-            "data_key": "performance"
-        }
-    ],
-    "default_headers": ["员工", "Q1", "Q2", "Q3", "Q4", "年度平均"]
-}
-
+# ================================================================================================
 def load_config():
     """加载表格配置文件"""
     config_path = os.path.join(CONFIG_DIR, 'table_configs.json')
@@ -317,9 +369,6 @@ def load_config():
                 return json.load(f)
         except Exception as e:
             print(f"加载配置文件时出错: {e}")
-    
-    # 如果配置文件不存在，返回默认配置
-    return DEFAULT_CONFIG
 
 def load_headers(header_file):
     """加载表头配置"""
@@ -336,22 +385,24 @@ def load_headers(header_file):
     config = load_config()
     return config.get("default_headers", ["员工", "数据1", "数据2"])
 
-def get_all_person_dirs(keyword=None):
-    """获取所有个人数据文件夹"""
+def get_all_person_dirs(other, keyword=None):
+    """获取数据文件夹"""
     person_dirs = []
-    if keyword and keyword not in ['-1', '0', '0.325', '0.625']:
+    if keyword:
         keyword = keyword.split('; ')
-        for i, kw in enumerate(keyword):
-            person_dirs.append({})
-            person_dirs[i]['name']=kw
-            person_dirs[i]['path'] = f'{DATA_DIRS}\\{kw}'
+        final = keyword if other is None else other
+        for k in final:
+                person_dirs.append({})
+                person_dirs[-1]['name']=k
+                person_dirs[-1]['path'] = f'{DATA_DIRS}\\{k}'
     return person_dirs
 
-def load_person_data(person_dir, table_config):
+def load_person_data(person_dir, table_config, height):
     """加载个人的表格数据"""
     person_name = person_dir['name']
     data_key = table_config['data_key']
-    
+    title = table_config['title']
+
     # 构建数据文件路径
     data_file = os.path.join(person_dir['path'], f"{data_key}.json")
     
@@ -359,7 +410,8 @@ def load_person_data(person_dir, table_config):
         try:
             with open(data_file, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                
+                if title in {'🚀 项目进度跟踪'}:
+                    data = data[height]
                 # 获取对应数据键的值
                 if data_key in data:
                     data_values = data[data_key]
@@ -370,144 +422,16 @@ def load_person_data(person_dir, table_config):
                     # 将员工名称作为第一列
                     row_data = [person_name] + data_values
                     return row_data
-                else:
-                    # 如果数据键不存在，返回NA
-                    return create_na_row(person_name, table_config)
         except Exception as e:
             print(f"加载 {person_name} 的 {data_key} 数据时出错: {e}")
-            return create_na_row(person_name, table_config)
-    else:
-        # 如果文件不存在，返回NA
-        return create_na_row(person_name, table_config)
+    return []
 
-def create_na_row(person_name, table_config):
-    """创建包含NA值的行"""
-    # 加载表头来确定列数
-    headers = load_headers(table_config['header_file'])
-    # 第一列是员工名称，其余列填充"NA"
-    row_data = [person_name] + ["NA"] * (len(headers) - 1)
-    return row_data
-
-def build_table_data(table_config):
-    """构建表格数据"""
-    # 加载表头
-    headers = load_headers(table_config['header_file'])
-    
-    # 获取所有个人文件夹
-    person_dirs = get_all_person_dirs()
-    
-    # 加载每个人的数据
-    rows = []
-    for person_dir in person_dirs:
-        row_data = load_person_data(person_dir, table_config)
-        # 确保数据长度与表头匹配
-        if len(row_data) < len(headers):
-            # 填充缺失的值
-            row_data = row_data + ["NA"] * (len(headers) - len(row_data))
-        elif len(row_data) > len(headers):
-            # 截断多余的值
-            row_data = row_data[:len(headers)]
-        
-        rows.append(row_data)
-    
-    return {
-        'id': table_config['id'],
-        'title': table_config['title'],
-        'description': table_config.get('description', ''),
-        'headers': headers,
-        'rows': rows
-    }
-
-
-def get_table_ids():
-    """获取所有表格的ID列表"""
-    config = load_config()
-    return [table['id'] for table in config.get('tables', [])]
-
-def save_person_data(person_name, data_key, data_values):
-    """保存个人数据到JSON文件"""
-    try:
-        # 创建个人文件夹（如果不存在）
-        person_dir = os.path.join(DATA_DIRS, person_name)
-        os.makedirs(person_dir, exist_ok=True)
-        
-        # 构建数据文件路径
-        data_file = os.path.join(person_dir, f"{data_key}.json")
-        
-        # 准备数据
-        data_dict = {data_key: data_values}
-        
-        # 保存到文件
-        with open(data_file, 'w', encoding='utf-8') as f:
-            json.dump(data_dict, f, ensure_ascii=False, indent=2)
-        
-        return True
-    except Exception as e:
-        print(f"保存 {person_name} 的 {data_key} 数据时出错: {e}")
-        return False
-
-def delete_person_data(person_name, data_key):
-    """删除个人的特定数据文件"""
-    try:
-        data_file = os.path.join(DATA_DIRS, person_name, f"{data_key}.json")
-        
-        if os.path.exists(data_file):
-            os.remove(data_file)
-            return True
-        return False
-    except Exception as e:
-        print(f"删除 {person_name} 的 {data_key} 数据时出错: {e}")
-        return False
-
-def get_person_names(keyword=None):
+def get_person_names(other, keyword=None):
     """获取所有人员名称列表"""
-    person_dirs = get_all_person_dirs(keyword)
+    person_dirs = get_all_person_dirs(other, keyword)
     return [person['name'] for person in person_dirs]
 
-def get_table_config(table_id):
-    """获取指定表格的配置"""
-    config = load_config()
-    for table_config in config.get('tables', []):
-        if table_config['id'] == table_id:
-            return table_config
-    return None
-
-def get_available_data_keys():
-    """获取所有可用的数据键（表格类型）"""
-    config = load_config()
-    return [table['data_key'] for table in config.get('tables', [])]
-
-def initialize_directories():
-    """初始化必要的目录结构"""
-    # 创建配置目录
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    os.makedirs(HEADERS_DIR, exist_ok=True)
-    os.makedirs(DATA_DIRS, exist_ok=True)
-    
-    # 如果配置文件不存在，创建默认配置
-    config_path = os.path.join(CONFIG_DIR, 'table_configs.json')
-    if not os.path.exists(config_path):
-        with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(DEFAULT_CONFIG, f, ensure_ascii=False, indent=2)
-        print(f"创建默认配置文件: {config_path}")
-    
-    # 创建默认表头文件
-    default_headers = {
-        'performance_headers.json': ["员工", "Q1", "Q2", "Q3", "Q4", "年度平均"],
-        'sales_headers.json': ["员工", "Q1", "Q2", "Q3", "Q4", "总计"],
-        'projects_headers.json': ["员工", "项目名称", "开始日期", "预计完成", "进度", "状态"],
-        'financial_headers.json': ["员工", "月份", "营收(万)", "成本(万)", "利润(万)", "利润率"]
-    }
-    
-    for filename, headers in default_headers.items():
-        header_path = os.path.join(HEADERS_DIR, filename)
-        if not os.path.exists(header_path):
-            with open(header_path, 'w', encoding='utf-8') as f:
-                json.dump(headers, f, ensure_ascii=False, indent=2)
-            print(f"创建表头文件: {header_path}")
-    
-    print("目录结构初始化完成")
-
-# 应用启动时初始化
-initialize_directories()
-get_all_tables()
+if __name__ == '__main__':
+    # 测试加载数据
+    get_all_tables(base_line=None, other=None, keyword='lisi; zhangsan', 
+                   selected_metrics=None, height='0.625')
