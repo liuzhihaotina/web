@@ -16,6 +16,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 def index():
     keyword = request.args.get('keyword', None)
     height = request.args.get('height', None)
+    occ_threshold = request.args.get('occ_threshold', "0.60")
 
     # 解析模型选择
     selected_models = request.args.getlist("models")
@@ -34,7 +35,8 @@ def index():
     # 解析指标选择
     selected_metrics = request.args.getlist("metrics")
 
-    models_all, metrics_all, charts, settings, constants = data.get_all_tables(base_line, other, keyword, selected_metrics, height)
+    models_all, metrics_all, charts, settings, constants = \
+        data.get_all_tables(base_line, other, keyword, selected_metrics, height, occ_threshold)
 
 
     return render_template(

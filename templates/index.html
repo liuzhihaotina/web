@@ -104,9 +104,21 @@
                             <i class="fas fa-sort-amount-down"></i> -1
                         </a>
                     </li>
-
                 </ul>
             </div>
+            <input type="hidden" name="height" id="height-hidden" value="{{ height|default(-1, true) }}">
+
+            <!-- 新增：Occ Threshold 滑动条 -->
+            <label for="occ-threshold-slider" class="form-label">Occ Threshold</label>
+            <input type="range" class="form-range" id="occ-threshold-slider" min="0.5" max="0.7" step="0.02" value="{{ occ_threshold|default(0.60, true) }}">
+            <span id="occ-threshold-value">{{ occ_threshold }}</span> <!-- 显示滑动条的当前值 -->
+            <!-- 关键：隐藏字段，让表单提交时带上参数 -->
+            <input
+            type="hidden"
+            name="occ_threshold"
+            id="occ-threshold-hidden"
+            value="{{ occ_threshold|default(0.60, true) }}"
+            >
 
             <button class="btn" type="submit">刷新展示</button>
             <!-- <button id="searchBtn">搜索</button> -->
@@ -247,9 +259,6 @@
             [1.00, "#7f0b0b"]
         ];
 
-
-
-
         const TURBO = DETAILED_GOR;
         let keyword_ = "{{ keyword }}";
 
@@ -299,7 +308,7 @@
 
         paintAllCells();
         setupLegends();
-
+// ------------------------------------高度阈值↓-------------------------------------------
         // 定义存储高度阈值的变量
         let selectedHeightThreshold = null;
 
@@ -326,22 +335,13 @@
                 selectHeightThreshold(0.625, 'height-btn4');
             });
         }
-
-        // 选择高度阈值的函数
         function selectHeightThreshold(value, buttonId) {
-            // 1. 更新变量
             selectedHeightThreshold = value;
-            
+
             // 2. 更新按钮文本显示（可选）
             const dropdownButton = document.querySelector('.dropdown-toggle');
-            const icon = dropdownButton.querySelector('i').cloneNode(true);
-            dropdownButton.innerHTML = '';
-            dropdownButton.appendChild(icon);
-            dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
-            
-            // 3. 更新选中状态（添加视觉反馈）
-            removeAllActiveClasses();
-            document.getElementById(buttonId).classList.add('active');
+            // ✅ 先更新 UI（以及 hidden）
+            applyHeightUI(String(value));
             
             // 4. 关闭下拉菜单（如果使用Bootstrap）
             const dropdownMenu = document.querySelector('.dropdown-menu');
@@ -352,10 +352,12 @@
                 }
             }
 
-            // fetch(`/?height=${value}`)
-            window.location.href = `/?height=${value}&keyword=${keyword_}`;
+            const occ = document.getElementById('occ-threshold-hidden')?.value
+                    || document.getElementById('occ-threshold-slider')?.value
+                    || '0.60';
 
-            console.log(`高度阈值已选择: ${value}`);
+            window.location.href =
+                `/?height=${encodeURIComponent(value)}&keyword=${encodeURIComponent(keyword_)}&occ_threshold=${encodeURIComponent(occ)}`;
         }
 
         // 移除所有激活状态
@@ -366,14 +368,73 @@
             });
         }
 
+        function applyHeightUI(value) {
+            // 更新按钮文本
+            const dropdownButton = document.querySelector('.dropdown-toggle');
+            if (dropdownButton) {
+                const icon = dropdownButton.querySelector('i')?.cloneNode(true);
+                dropdownButton.innerHTML = '';
+                if (icon) dropdownButton.appendChild(icon);
+                dropdownButton.appendChild(document.createTextNode(` 高度阈值: ${value}`));
+            }
+
+            // 高亮选中项
+            removeAllActiveClasses();
+            const map = {
+                "-1": "height-btn1",
+                "0": "height-btn2",
+                "0.325": "height-btn3",
+                "0.625": "height-btn4",
+            };
+            const key = String(value);
+            if (map[key]) document.getElementById(map[key])?.classList.add('active');
+
+            // 同步隐藏字段（如果你加了 height-hidden）
+            const hh = document.getElementById('height-hidden');
+            if (hh) hh.value = value;
+        }
+
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
             initHeightThresholdButtons();
-            
-            // 可以设置默认值
-            // selectHeightThreshold(0, 'height-btn2'); // 默认选择0
-        });
 
+            // ✅ 优先从 URL 读 height
+            const qs = new URLSearchParams(window.location.search);
+            const hFromUrl = qs.get('height');
+
+            if (hFromUrl !== null) {
+                // 统一成 number/字符串都行，只要跟 map 的 key 能对上
+                const h = Number(hFromUrl);
+                // 处理 -1,0,0.325,0.625 这种精确值：用原字符串更稳
+                applyHeightUI(hFromUrl);  // 推荐：直接用字符串
+            } else {
+                // URL 没有就用模板渲染值（作为兜底）
+                applyHeightUI("{{ height|default(0, true) }}");
+            }
+        });
+// ------------------------------------高度阈值↑-------------------------------------------
+
+// ------------------------------------Occ Threshold 滑动条↓-------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+        const slider = document.getElementById('occ-threshold-slider');
+        const valueEl = document.getElementById('occ-threshold-value');
+        const hidden = document.getElementById('occ-threshold-hidden');
+
+        const qs = new URLSearchParams(window.location.search);
+        const fromUrl = qs.get('occ_threshold');
+
+        const initVal = Number(fromUrl ?? slider.value ?? 0.6).toFixed(2);
+        slider.value = initVal;
+        valueEl.textContent = initVal;
+        hidden.value = initVal;
+
+        slider.addEventListener('input', () => {
+            const v = Number(slider.value).toFixed(2);
+            valueEl.textContent = v;
+            hidden.value = v;
+        });
+        });
+// ------------------------------------Occ Threshold 滑动条↑-------------------------------------------
         // 搜索按钮点击事件
         // document.getElementById('searchBtn').addEventListener('click', function() {
         //     console.log('keyword', keyword_);

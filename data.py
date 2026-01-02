@@ -49,12 +49,12 @@ def get_important_persons(base_line):
     
     return sorted(important_persons)
 
-def load_important_person_data(person_name, table_config, height):
+def load_important_person_data(person_name, table_config, height, occ_threshold):
     """加载标兵个人数据"""
     data_key = table_config['data_key']
     title = table_config['title']
     
-    # 首先尝试从标兵目录加载
+    # 从基线目录加载
     important_file = os.path.join(IMPORTANT_DIR, person_name, f"{data_key}.json")
     
     if os.path.exists(important_file):
@@ -66,6 +66,9 @@ def load_important_person_data(person_name, table_config, height):
                     if title in {'🚀 项目进度跟踪'}:
                         height = '-1' if height is None else height
                         data_values = data_values[height]
+                    if title in {'🌸 occ阈值'}:
+                        occ_threshold = '0.60' if occ_threshold is None else occ_threshold
+                        data_values = data_values[occ_threshold]
                     if not isinstance(data_values, list):
                         data_values = [data_values]
                     row_data = [f"⭐ {person_name}"] + data_values
@@ -81,7 +84,7 @@ def load_important_person_data(person_name, table_config, height):
     # 没有则返回空列表
     return []
 
-def build_table_data(table_config, base_line, other, keyword, height):
+def build_table_data(table_config, base_line, other, keyword, height, occ_threshold):
     # 加载表头
     headers = load_headers(table_config['header_file'])
     
@@ -95,7 +98,7 @@ def build_table_data(table_config, base_line, other, keyword, height):
     # 首先添加标兵数据
     important_rows = []
     for person in important_persons:
-        row_data = load_important_person_data(person, table_config, height)
+        row_data = load_important_person_data(person, table_config, height, occ_threshold)
         if len(row_data) == 0:
             continue
         # 确保数据长度与表头匹配
@@ -109,7 +112,7 @@ def build_table_data(table_config, base_line, other, keyword, height):
     normal_rows = []
     for person in normal_persons:
         person_dir = {'name': person, 'path': os.path.join(DATA_DIRS, person)}
-        row_data = load_person_data(person_dir, table_config, height)
+        row_data = load_person_data(person_dir, table_config, height, occ_threshold)
         if len(row_data) == 0:
             continue
         # 确保数据长度与表头匹配
@@ -136,7 +139,7 @@ def get_tables_cfg():
     config = load_config()
     return config
 
-def get_all_tables(base_line, other, keyword, selected_metrics, height):
+def get_all_tables(base_line, other, keyword, selected_metrics, height, occ_threshold):
     """获取所有表格的数据"""
     config = get_tables_cfg()
     tables = []
@@ -144,7 +147,7 @@ def get_all_tables(base_line, other, keyword, selected_metrics, height):
     for table_config in config.get('tables', []):
         if selected_metrics and table_config['title'] not in selected_metrics:
             continue
-        table_data = build_table_data(table_config, base_line, other, keyword, height)
+        table_data = build_table_data(table_config, base_line, other, keyword, height, occ_threshold)
         tables.append(table_data)
         
     models_all = get_models_all(tables)
@@ -397,7 +400,7 @@ def get_all_person_dirs(other, keyword=None):
                 person_dirs[-1]['path'] = f'{DATA_DIRS}\\{k}'
     return person_dirs
 
-def load_person_data(person_dir, table_config, height):
+def load_person_data(person_dir, table_config, height, occ_threshold):
     """加载个人的表格数据"""
     person_name = person_dir['name']
     data_key = table_config['data_key']
@@ -412,6 +415,8 @@ def load_person_data(person_dir, table_config, height):
                 data = json.load(f)
                 if title in {'🚀 项目进度跟踪'}:
                     data = data[height]
+                if title in {'🌸 occ阈值'}:
+                    occ_threshold = '0.60' if occ_threshold is None else occ_threshold
                 # 获取对应数据键的值
                 if data_key in data:
                     data_values = data[data_key]
@@ -434,4 +439,4 @@ def get_person_names(other, keyword=None):
 if __name__ == '__main__':
     # 测试加载数据
     get_all_tables(base_line=None, other=None, keyword='lisi; zhangsan', 
-                   selected_metrics=None, height='0.625')
+                   selected_metrics=None, height='0.625', occ_threshold=None)
