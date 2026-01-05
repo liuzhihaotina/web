@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flask Debug",
+            "type": "python",
+            "request": "launch",
+            "program": "app.py",
+            "console": "integratedTerminal",
+            "env": {
+                "FLASK_DEBUG": "1"
+            },
+            "args": [],
+            "jinja": true
+        }
+    ]
+}

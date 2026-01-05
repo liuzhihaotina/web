@@ -19,21 +19,14 @@
       "title": "🚀 项目进度跟踪",
       "description": "各员工负责项目完成情况",
       "header_file": "projects_headers.json",
-      "data_key": "projects"
+      "data_key": "projects_"
     },
     {
-      "id": "financial-table",
-      "title": "💰 财务数据",
-      "description": "月度财务指标",
-      "header_file": "financial_headers.json",
-      "data_key": "financial"
-    },
-    {
-      "id": "flower-table",
-      "title": "🌹 flower",
-      "description": "花",
-      "header_file": "flower_headers.json",
-      "data_key": "flower"
+      "id": "projects-table",
+      "title": "🌸 occ阈值",
+      "description": "滑条选择occ阈值",
+      "header_file": "occ_headers.json",
+      "data_key": "occ"
     }
   ],
   "default_headers": ["员工", "Q1", "Q2", "Q3", "Q4", "年度平均"]
